@@ -16,9 +16,8 @@ const cormorant = Cormorant_Garamond({
 })
 
 export const metadata = {
-  title: "2207 Scents | The Art of Scent Memory",
-  description: "Luxury home fragrances designed for those who move through the world with intention.",
-    generator: 'v0.dev'
+  title: " Afriverse | Look Good, Waste Less.",
+  description: "Africa's premier sustainable fashion marketplace connecting conscious shoppers with quality pre-loved pieces. Shop, sell, and make an impact across the continent.",
 }
 
 export default function RootLayout({
