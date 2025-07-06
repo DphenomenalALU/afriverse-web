@@ -147,7 +147,7 @@ export default function Home() {
                 Trending Now
               </h2>
               <p className="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto">
-                Discover the latest drops from our community of conscious sellers around the world.
+                Discover the latest drops from our community of eco-conscious sellers around the world.
               </p>
             </div>
             <ListingsCarousel />
@@ -262,7 +262,7 @@ export default function Home() {
               Together, We Can Change This
             </h2>
             <p className="text-lg md:text-xl text-green-100 mb-8 max-w-3xl mx-auto">
-              Every pre-loved item you buy or sell helps break the cycle of fast fashion. Join thousands of conscious
+              Every pre-loved item you buy or sell helps break the cycle of fast fashion. Join thousands of eco-conscious
               consumers building a more sustainable fashion future, one piece at a time.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">

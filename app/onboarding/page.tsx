@@ -1,8 +1,12 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import Image from "next/image"
-import { ArrowRight, ArrowLeft, Sparkles, Heart, DollarSign, Package, CheckCircle } from "lucide-react"
+import { ArrowRight, ArrowLeft, Sparkles, Heart, DollarSign, Package, Camera, CheckCircle } from "lucide-react"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { useToast } from "@/hooks/use-toast"
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -92,12 +96,15 @@ const sustainabilityGoals = [
 ]
 
 export default function OnboardingPage() {
+  const router = useRouter()
+  const { toast } = useToast()
+  const supabase = createClientComponentClient()
   const [currentStep, setCurrentStep] = useState(0)
   const [selectedStyles, setSelectedStyles] = useState<string[]>([])
   const [budget, setBudget] = useState([100])
   const [frequency, setFrequency] = useState("monthly")
   const [sizes, setSizes] = useState<string[]>([])
-  const [sustainabilityGoals, setSustainabilityGoals] = useState<string[]>([])
+  const [selectedGoals, setSelectedGoals] = useState<string[]>([])
   const [preferences, setPreferences] = useState({
     colors: [] as string[],
     brands: [] as string[],
@@ -113,7 +120,7 @@ export default function OnboardingPage() {
   }
 
   const handleGoalToggle = (goalId: string) => {
-    setSustainabilityGoals((prev) => (prev.includes(goalId) ? prev.filter((id) => id !== goalId) : [...prev, goalId]))
+    setSelectedGoals((prev) => (prev.includes(goalId) ? prev.filter((id) => id !== goalId) : [...prev, goalId]))
   }
 
   const nextStep = () => {
@@ -137,9 +144,66 @@ export default function OnboardingPage() {
       case 2:
         return sizes.length > 0
       case 3:
-        return sustainabilityGoals.length > 0
+        return selectedGoals.length > 0
       default:
         return true
+    }
+  }
+
+  const handleComplete = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (!session) {
+        // Save preferences to local storage for after sign up
+        localStorage.setItem('onboarding_preferences', JSON.stringify({
+          styles: selectedStyles,
+          budget: budget[0],
+          frequency,
+          sizes,
+          sustainabilityGoals: selectedGoals,
+          preferences,
+        }))
+
+        toast({
+          title: "Create an account",
+          description: "Please create an account to save your preferences and start exploring curated items.",
+        })
+
+        router.push('/auth/signup')
+        return
+      }
+
+      // Save preferences to database
+      const { error } = await supabase
+        .from('user_preferences')
+        .upsert({
+          user_id: session.user.id,
+          styles: selectedStyles,
+          budget: budget[0],
+          frequency,
+          sizes,
+          sustainability_goals: selectedGoals,
+          color_preferences: preferences.colors,
+          brand_preferences: preferences.brands,
+          category_preferences: preferences.categories,
+        })
+
+      if (error) throw error
+
+      toast({
+        title: "Preferences saved!",
+        description: "We'll start curating items based on your style.",
+      })
+
+      router.push('/listings')
+    } catch (error) {
+      console.error('Error saving preferences:', error)
+      toast({
+        title: "Error saving preferences",
+        description: "Please try again later.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -360,7 +424,7 @@ export default function OnboardingPage() {
                   <Card
                     key={goal.id}
                     className={`cursor-pointer transition-all duration-300 ${
-                      sustainabilityGoals.includes(goal.id) ? "ring-2 ring-green-500 bg-green-50" : "hover:shadow-md"
+                      selectedGoals.includes(goal.id) ? "ring-2 ring-green-500 bg-green-50" : "hover:shadow-md"
                     }`}
                     onClick={() => handleGoalToggle(goal.id)}
                   >
@@ -368,7 +432,7 @@ export default function OnboardingPage() {
                       <div className="text-4xl mb-4">{goal.icon}</div>
                       <h3 className="font-semibold text-gray-900 mb-2">{goal.title}</h3>
                       <p className="text-gray-600">{goal.description}</p>
-                      {sustainabilityGoals.includes(goal.id) && (
+                      {selectedGoals.includes(goal.id) && (
                         <CheckCircle className="h-6 w-6 text-green-500 mt-3 mx-auto" />
                       )}
                     </CardContent>
@@ -461,7 +525,7 @@ export default function OnboardingPage() {
                     </div>
                     <div>
                       <h4 className="font-medium text-gray-900 mb-2">Impact Goals:</h4>
-                      <p className="text-gray-700">{sustainabilityGoals.length} goals selected</p>
+                      <p className="text-gray-700">{selectedGoals.length} goals selected</p>
                     </div>
                   </div>
                 </CardContent>
@@ -482,7 +546,10 @@ export default function OnboardingPage() {
                 <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             ) : (
-              <Button className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 px-8">
+              <Button 
+                onClick={handleComplete}
+                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 px-8"
+              >
                 Start My Curation
                 <Sparkles className="h-4 w-4 ml-2" />
               </Button>

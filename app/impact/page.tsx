@@ -77,7 +77,7 @@ const topBuyers = [
     itemsBought: 89,
     co2Saved: 445,
     saved: 3200,
-    badge: "Conscious Consumer",
+    badge: "Eco-conscious Consumer",
     rank: 1,
   },
   {

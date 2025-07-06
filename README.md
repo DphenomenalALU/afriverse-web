@@ -1,6 +1,6 @@
 # Afriverse - Look Good, Waste Less
 
-Africa's premier sustainable fashion marketplace connecting conscious shoppers with quality pre-loved pieces.
+Africa's premier sustainable fashion marketplace connecting eco-conscious shoppers with quality pre-loved pieces.
 
 ![Afriverse Logo](/public/images/afriverse-logo.png)
 

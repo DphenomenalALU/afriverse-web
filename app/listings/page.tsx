@@ -1,7 +1,11 @@
 "use client"
 
-import { useState } from "react"
-import { Search, Filter, Grid3X3, List, Bookmark, MessageCircle, Camera, MapPin, Clock, Star, X } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Search, Filter, Grid3X3, List, Bookmark, MessageCircle, Camera, MapPin, Clock, Star } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { useListings } from "@/hooks/use-listings"
+import { useToast } from "@/hooks/use-toast"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,502 +13,490 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Slider } from "@/components/ui/slider"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { Separator } from "@/components/ui/separator"
+import ImageWithFallback from "@/components/ui/image-with-fallback"
 import SiteHeader from "@/components/site-header"
 import SiteFooter from "@/components/site-footer"
-import ImageWithFallback from "@/components/ui/image-with-fallback"
 
-// Mock data for listings
-const mockListings = [
-  {
-    id: 1,
-    title: "Vintage Levi's Denim Jacket",
-    brand: "Levi's",
-    price: 45,
-    originalPrice: 120,
-    condition: "Excellent",
-    size: "M",
-    seller: "Sarah M.",
-    location: "Lagos, Nigeria",
-    images: ["/placeholder.svg?height=400&width=400"],
-    rating: 4.8,
-    reviews: 23,
-    postedTime: "2 hours ago",
-    category: "jackets",
-    tags: ["vintage", "denim", "classic"],
-    tryOnAvailable: true,
-  },
-  {
-    id: 2,
-    title: "Floral Summer Dress",
-    brand: "Zara",
-    price: 25,
-    originalPrice: 65,
-    condition: "Very Good",
-    size: "S",
-    seller: "Amara K.",
-    location: "Accra, Ghana",
-    images: ["/placeholder.svg?height=400&width=400"],
-    rating: 4.9,
-    reviews: 15,
-    postedTime: "5 hours ago",
-    category: "dresses",
-    tags: ["floral", "summer", "casual"],
-    tryOnAvailable: true,
-  },
-  {
-    id: 3,
-    title: "Designer Silk Scarf",
-    brand: "Hermès",
-    price: 180,
-    originalPrice: 350,
-    condition: "Like New",
-    size: "One Size",
-    seller: "Fatima A.",
-    location: "Cairo, Egypt",
-    images: ["/placeholder.svg?height=400&width=400"],
-    rating: 5.0,
-    reviews: 8,
-    postedTime: "1 day ago",
-    category: "accessories",
-    tags: ["luxury", "silk", "designer"],
-    tryOnAvailable: false,
-  },
-  {
-    id: 4,
-    title: "Leather Ankle Boots",
-    brand: "Dr. Martens",
-    price: 85,
-    originalPrice: 160,
-    condition: "Good",
-    size: "8",
-    seller: "Kemi O.",
-    location: "Nairobi, Kenya",
-    images: ["/placeholder.svg?height=400&width=400"],
-    rating: 4.7,
-    reviews: 31,
-    postedTime: "3 days ago",
-    category: "shoes",
-    tags: ["leather", "boots", "classic"],
-    tryOnAvailable: true,
-  },
-  {
-    id: 5,
-    title: "Cashmere Sweater",
-    brand: "Uniqlo",
-    price: 35,
-    originalPrice: 80,
-    condition: "Excellent",
-    size: "L",
-    seller: "Aisha B.",
-    location: "Marrakech, Morocco",
-    images: ["/placeholder.svg?height=400&width=400"],
-    rating: 4.6,
-    reviews: 12,
-    postedTime: "1 week ago",
-    category: "sweaters",
-    tags: ["cashmere", "warm", "luxury"],
-    tryOnAvailable: true,
-  },
-  {
-    id: 6,
-    title: "High-Waist Jeans",
-    brand: "Citizens of Humanity",
-    price: 55,
-    originalPrice: 140,
-    condition: "Very Good",
-    size: "29",
-    seller: "Zara M.",
-    location: "Cape Town, South Africa",
-    images: ["/placeholder.svg?height=400&width=400"],
-    rating: 4.8,
-    reviews: 19,
-    postedTime: "2 weeks ago",
-    category: "jeans",
-    tags: ["high-waist", "denim", "sustainable"],
-    tryOnAvailable: true,
-  },
+const categories = [
+  "Dresses",
+  "Tops",
+  "Bottoms",
+  "Outerwear",
+  "Accessories",
+  "Shoes",
+  "Traditional",
 ]
 
-const categories = ["All Categories", "Dresses", "Tops", "Bottoms", "Jackets", "Shoes", "Accessories", "Bags"]
+const conditions = [
+  "New with Tags",
+  "Like New",
+  "Very Good",
+  "Good",
+  "Fair",
+]
 
-const conditions = ["Like New", "Excellent", "Very Good", "Good", "Fair"]
-
-const sizes = ["XS", "S", "M", "L", "XL", "XXL"]
+const sizes = [
+  "XS",
+  "S",
+  "M",
+  "L",
+  "XL",
+  "XXL",
+  "One Size",
+]
 
 export default function ListingsPage() {
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
-  const [showFilters, setShowFilters] = useState(false)
-  const [priceRange, setPriceRange] = useState([0, 500])
+  const router = useRouter()
+  const { toast } = useToast()
+  const supabase = createClientComponentClient()
+  const [searchQuery, setSearchQuery] = useState("")
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000])
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [selectedConditions, setSelectedConditions] = useState<string[]>([])
   const [selectedSizes, setSelectedSizes] = useState<string[]>([])
-  const [searchQuery, setSearchQuery] = useState("")
-  const [sortBy, setSortBy] = useState("newest")
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
 
-  const handleSaveItem = (itemId: number) => {
-    console.log("Saving item:", itemId)
+  const { listings, isLoading, error } = useListings({
+    searchQuery,
+    priceRange,
+    categories: selectedCategories,
+    conditions: selectedConditions,
+    sizes: selectedSizes,
+  })
+
+  const handleAddToCart = async (listingId: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (session) {
+        // Add to cart in database
+        const { error } = await supabase
+          .from('cart_items')
+          .insert({
+            user_id: session.user.id,
+            listing_id: listingId,
+            quantity: 1,
+          })
+
+        if (error) throw error
+
+        toast({
+          title: "Added to cart",
+          description: "The item has been added to your cart.",
+        })
+      } else {
+        // Add to cart in local storage
+        const savedCart = localStorage.getItem('guest_cart') || '[]'
+        const cartItems = JSON.parse(savedCart)
+        const listing = listings.find(l => l.id === listingId)
+
+        if (!listing) return
+
+        const newItem = {
+          id: listingId,
+          title: listing.title,
+          price: listing.price,
+          size: listing.size,
+          image: listing.image_urls[0],
+          quantity: 1,
+        }
+
+        cartItems.push(newItem)
+        localStorage.setItem('guest_cart', JSON.stringify(cartItems))
+
+        toast({
+          title: "Added to cart",
+          description: "The item has been added to your cart.",
+        })
+      }
+    } catch (error) {
+      console.error('Error adding to cart:', error)
+      toast({
+        title: "Error adding to cart",
+        description: "Please try again later.",
+        variant: "destructive",
+      })
+    }
   }
 
-  const handleBuyNow = (itemId: number) => {
-    window.location.href = `/messages?item=${itemId}&action=buy`
+  const handleMessage = async (listingId: string) => {
+    const { data: { session } } = await supabase.auth.getSession()
+
+    if (!session) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in to message sellers.",
+      })
+      router.push('/auth/login')
+      return
+    }
+
+    router.push(`/messages?listing=${listingId}`)
   }
 
-  const handleTryOn = (itemId: number) => {
-    window.location.href = `/try-on?item=${itemId}`
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <SiteHeader />
+        <div className="container py-8">
+          <div className="max-w-4xl mx-auto text-center">
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Error loading listings</h2>
+            <p className="text-gray-600 mb-6">Please try again later.</p>
+            <Button onClick={() => window.location.reload()}>
+              Refresh Page
+            </Button>
+          </div>
+        </div>
+        <SiteFooter />
+      </div>
+    )
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <SiteHeader />
 
-      <div className="container py-4 md:py-8 px-4">
-        {/* Header */}
-        <div className="mb-6 md:mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Shop Sustainable Fashion</h1>
-          <p className="text-gray-600">Discover pre-loved pieces from conscious sellers worldwide</p>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 md:gap-8">
-          {/* Filters Sidebar - Mobile Overlay */}
-          {showFilters && (
-            <div className="fixed inset-0 z-50 lg:hidden">
-              <div className="absolute inset-0 bg-black/50" onClick={() => setShowFilters(false)}></div>
-              <div className="absolute right-0 top-0 h-full w-80 max-w-[90vw] bg-white overflow-y-auto">
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                      <Filter className="h-4 w-4" />
-                      Filters
-                    </h3>
-                    <Button variant="ghost" size="sm" onClick={() => setShowFilters(false)}>
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  {/* Mobile Filter Content */}
-                  <div className="space-y-6">
-                    {/* Search */}
-                    <div>
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <Input
-                          placeholder="Search items..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="pl-10"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Price Range */}
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-3">Price Range</h4>
-                      <Slider value={priceRange} onValueChange={setPriceRange} max={500} step={5} className="mb-2" />
-                      <div className="flex justify-between text-sm text-gray-600">
-                        <span>${priceRange[0]}</span>
-                        <span>${priceRange[1]}</span>
-                      </div>
-                    </div>
-
-                    {/* Categories */}
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-3">Categories</h4>
-                      <div className="space-y-2">
-                        {categories.slice(1).map((category) => (
-                          <div key={category} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={category}
-                              checked={selectedCategories.includes(category)}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setSelectedCategories([...selectedCategories, category])
-                                } else {
-                                  setSelectedCategories(selectedCategories.filter((c) => c !== category))
-                                }
-                              }}
-                            />
-                            <label htmlFor={category} className="text-sm text-gray-700 cursor-pointer">
-                              {category}
-                            </label>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Size */}
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-3">Size</h4>
-                      <div className="grid grid-cols-3 gap-2">
-                        {sizes.map((size) => (
-                          <Button
-                            key={size}
-                            variant={selectedSizes.includes(size) ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => {
-                              if (selectedSizes.includes(size)) {
-                                setSelectedSizes(selectedSizes.filter((s) => s !== size))
-                              } else {
-                                setSelectedSizes([...selectedSizes, size])
-                              }
-                            }}
-                            className="h-8"
-                          >
-                            {size}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+      <div className="container py-8">
+        {/* Search and Filters */}
+        <div className="flex flex-col md:flex-row gap-4 mb-8">
+          <div className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <Input
+                type="search"
+                placeholder="Search listings..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
             </div>
-          )}
-
-          {/* Desktop Filters Sidebar */}
-          <div className="hidden lg:block lg:col-span-1">
-            <Card className="sticky top-24">
-              <CardContent className="p-6">
-                <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <Filter className="h-4 w-4" />
-                  Filters
-                </h3>
-
-                {/* Search */}
-                <div className="mb-6">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      placeholder="Search items..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-
-                {/* Price Range */}
-                <div className="mb-6">
-                  <h4 className="font-medium text-gray-900 mb-3">Price Range</h4>
-                  <Slider value={priceRange} onValueChange={setPriceRange} max={500} step={5} className="mb-2" />
-                  <div className="flex justify-between text-sm text-gray-600">
-                    <span>${priceRange[0]}</span>
-                    <span>${priceRange[1]}</span>
-                  </div>
-                </div>
-
-                {/* Categories */}
-                <div className="mb-6">
-                  <h4 className="font-medium text-gray-900 mb-3">Categories</h4>
-                  <div className="space-y-2">
-                    {categories.slice(1).map((category) => (
-                      <div key={category} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={category}
-                          checked={selectedCategories.includes(category)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setSelectedCategories([...selectedCategories, category])
-                            } else {
-                              setSelectedCategories(selectedCategories.filter((c) => c !== category))
-                            }
-                          }}
-                        />
-                        <label htmlFor={category} className="text-sm text-gray-700 cursor-pointer">
-                          {category}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Size */}
-                <div className="mb-6">
-                  <h4 className="font-medium text-gray-900 mb-3">Size</h4>
-                  <div className="grid grid-cols-3 gap-2">
-                    {sizes.map((size) => (
-                      <Button
-                        key={size}
-                        variant={selectedSizes.includes(size) ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => {
-                          if (selectedSizes.includes(size)) {
-                            setSelectedSizes(selectedSizes.filter((s) => s !== size))
-                          } else {
-                            setSelectedSizes([...selectedSizes, size])
-                          }
-                        }}
-                        className="h-8"
-                      >
-                        {size}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </div>
 
-          {/* Main Content */}
-          <div className="lg:col-span-3">
-            {/* Toolbar */}
-            <div className="flex items-center justify-between mb-6 gap-4">
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-gray-600">{mockListings.length} items found</span>
-                <Button variant="outline" size="sm" onClick={() => setShowFilters(true)} className="lg:hidden">
+          <div className="flex gap-2">
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" className="bg-white">
                   <Filter className="h-4 w-4 mr-2" />
                   Filters
                 </Button>
-              </div>
-
-              <div className="flex items-center gap-2 md:gap-4">
-                {/* Sort */}
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="text-xs md:text-sm border border-gray-300 rounded-md px-2 md:px-3 py-1.5 bg-white"
-                >
-                  <option value="newest">Newest First</option>
-                  <option value="price-low">Price: Low to High</option>
-                  <option value="price-high">Price: High to Low</option>
-                  <option value="rating">Highest Rated</option>
-                </select>
-
-                {/* View Toggle */}
-                <div className="hidden md:flex border border-gray-300 rounded-md">
-                  <Button
-                    variant={viewMode === "grid" ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setViewMode("grid")}
-                    className="rounded-r-none"
-                  >
-                    <Grid3X3 className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant={viewMode === "list" ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setViewMode("list")}
-                    className="rounded-l-none"
-                  >
-                    <List className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            {/* Listings Grid */}
-            <div className="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
-              {mockListings.map((item) => (
-                <Card key={item.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                  <div className="relative">
-                    <ImageWithFallback
-                      src={item.images[0] || "/placeholder.svg"}
-                      alt={item.title}
-                      width={400}
-                      height={400}
-                      className="w-full h-48 md:h-64 object-cover"
-                      fallbackClassName="w-full h-48 md:h-64 rounded-t-lg"
+              </SheetTrigger>
+              <SheetContent className="w-full sm:max-w-md">
+                <SheetHeader>
+                  <SheetTitle>Filter Listings</SheetTitle>
+                </SheetHeader>
+                <div className="py-6 space-y-6">
+                  {/* Price Range */}
+                  <div>
+                    <h3 className="font-medium text-gray-900 mb-4">Price Range</h3>
+                    <Slider
+                      value={priceRange}
+                      onValueChange={(value) => setPriceRange(value as [number, number])}
+                      min={0}
+                      max={1000}
+                      step={10}
+                      className="mb-2"
                     />
+                    <div className="flex justify-between text-sm text-gray-600">
+                      <span>${priceRange[0]}</span>
+                      <span>${priceRange[1]}</span>
+                    </div>
+                  </div>
 
-                    {/* Condition Badge */}
-                    <Badge className="absolute top-3 left-3 bg-white text-gray-900 text-xs">{item.condition}</Badge>
+                  <Separator />
 
-                    {/* Try-On Badge */}
-                    {item.tryOnAvailable && (
-                      <Badge className="absolute top-3 right-3 bg-purple-600 text-white text-xs">
+                  {/* Categories */}
+                  <div>
+                    <h3 className="font-medium text-gray-900 mb-4">Categories</h3>
+                    <div className="space-y-2">
+                      {categories.map((category) => (
+                        <div key={category} className="flex items-center">
+                          <Checkbox
+                            id={`category-${category}`}
+                            checked={selectedCategories.includes(category)}
+                            onCheckedChange={(checked) => {
+                              setSelectedCategories(
+                                checked
+                                  ? [...selectedCategories, category]
+                                  : selectedCategories.filter((c) => c !== category)
+                              )
+                            }}
+                          />
+                          <label
+                            htmlFor={`category-${category}`}
+                            className="ml-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          >
+                            {category}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Conditions */}
+                  <div>
+                    <h3 className="font-medium text-gray-900 mb-4">Condition</h3>
+                    <div className="space-y-2">
+                      {conditions.map((condition) => (
+                        <div key={condition} className="flex items-center">
+                          <Checkbox
+                            id={`condition-${condition}`}
+                            checked={selectedConditions.includes(condition)}
+                            onCheckedChange={(checked) => {
+                              setSelectedConditions(
+                                checked
+                                  ? [...selectedConditions, condition]
+                                  : selectedConditions.filter((c) => c !== condition)
+                              )
+                            }}
+                          />
+                          <label
+                            htmlFor={`condition-${condition}`}
+                            className="ml-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          >
+                            {condition}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Sizes */}
+                  <div>
+                    <h3 className="font-medium text-gray-900 mb-4">Size</h3>
+                    <div className="space-y-2">
+                      {sizes.map((size) => (
+                        <div key={size} className="flex items-center">
+                          <Checkbox
+                            id={`size-${size}`}
+                            checked={selectedSizes.includes(size)}
+                            onCheckedChange={(checked) => {
+                              setSelectedSizes(
+                                checked
+                                  ? [...selectedSizes, size]
+                                  : selectedSizes.filter((s) => s !== size)
+                              )
+                            }}
+                          />
+                          <label
+                            htmlFor={`size-${size}`}
+                            className="ml-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          >
+                            {size}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
+
+            <Button
+              variant="outline"
+              className="bg-white"
+              onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
+            >
+              {viewMode === "grid" ? (
+                <List className="h-4 w-4" />
+              ) : (
+                <Grid3X3 className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        </div>
+
+        {/* Active Filters */}
+        {(selectedCategories.length > 0 ||
+          selectedConditions.length > 0 ||
+          selectedSizes.length > 0 ||
+          priceRange[0] > 0 ||
+          priceRange[1] < 1000) && (
+          <div className="flex flex-wrap gap-2 mb-6">
+            {selectedCategories.map((category) => (
+              <Badge
+                key={category}
+                variant="secondary"
+                className="cursor-pointer"
+                onClick={() => setSelectedCategories(selectedCategories.filter((c) => c !== category))}
+              >
+                {category} ×
+              </Badge>
+            ))}
+            {selectedConditions.map((condition) => (
+              <Badge
+                key={condition}
+                variant="secondary"
+                className="cursor-pointer"
+                onClick={() => setSelectedConditions(selectedConditions.filter((c) => c !== condition))}
+              >
+                {condition} ×
+              </Badge>
+            ))}
+            {selectedSizes.map((size) => (
+              <Badge
+                key={size}
+                variant="secondary"
+                className="cursor-pointer"
+                onClick={() => setSelectedSizes(selectedSizes.filter((s) => s !== size))}
+              >
+                {size} ×
+              </Badge>
+            ))}
+            {(priceRange[0] > 0 || priceRange[1] < 1000) && (
+              <Badge
+                variant="secondary"
+                className="cursor-pointer"
+                onClick={() => setPriceRange([0, 1000])}
+              >
+                ${priceRange[0]} - ${priceRange[1]} ×
+              </Badge>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSelectedCategories([])
+                setSelectedConditions([])
+                setSelectedSizes([])
+                setPriceRange([0, 1000])
+              }}
+            >
+              Clear all
+            </Button>
+          </div>
+        )}
+
+        {/* Listings Grid/List */}
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Card key={i} className="overflow-hidden">
+                <CardContent className="p-0">
+                  <div className="animate-pulse">
+                    <div className="h-64 bg-gray-200" />
+                    <div className="p-4 space-y-3">
+                      <div className="h-4 bg-gray-200 rounded w-3/4" />
+                      <div className="h-4 bg-gray-200 rounded w-1/2" />
+                      <div className="h-4 bg-gray-200 rounded w-1/4" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : listings.length === 0 ? (
+          <div className="text-center py-12">
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">No listings found</h2>
+            <p className="text-gray-600 mb-6">Try adjusting your filters or search terms</p>
+            <Button
+              onClick={() => {
+                setSearchQuery("")
+                setSelectedCategories([])
+                setSelectedConditions([])
+                setSelectedSizes([])
+                setPriceRange([0, 1000])
+              }}
+            >
+              Clear Filters
+            </Button>
+          </div>
+        ) : (
+          <div
+            className={
+              viewMode === "grid"
+                ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                : "space-y-4"
+            }
+          >
+            {listings.map((listing) => (
+              <Card key={listing.id} className={viewMode === "list" ? "overflow-hidden" : ""}>
+                <CardContent className={viewMode === "list" ? "p-4 flex gap-4" : "p-0"}>
+                  <div
+                    className={
+                      viewMode === "list"
+                        ? "relative w-40 h-40 flex-shrink-0"
+                        : "relative aspect-square"
+                    }
+                  >
+                    <ImageWithFallback
+                      src={listing.image_urls[0]}
+                      alt={listing.title}
+                      width={viewMode === "list" ? 160 : 400}
+                      height={viewMode === "list" ? 160 : 400}
+                      className="object-cover rounded-lg"
+                    />
+                    {listing.try_on_available && (
+                      <Badge className="absolute top-2 right-2 bg-purple-600">
                         <Camera className="h-3 w-3 mr-1" />
                         Try-On
                       </Badge>
                     )}
                   </div>
 
-                  <CardContent className="p-3 md:p-4">
-                    <div className="mb-3">
-                      <h3 className="font-semibold text-gray-900 mb-1 text-sm md:text-base line-clamp-1">
-                        {item.title}
-                      </h3>
-                      <p className="text-xs md:text-sm text-gray-600">
-                        {item.brand} • Size {item.size}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-lg md:text-2xl font-bold text-green-600">${item.price}</span>
-                      <span className="text-xs md:text-sm text-gray-500 line-through">${item.originalPrice}</span>
-                      <Badge variant="secondary" className="text-xs">
-                        {Math.round((1 - item.price / item.originalPrice) * 100)}% off
-                      </Badge>
-                    </div>
-
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="flex items-center gap-1">
-                        <Star className="h-3 w-3 md:h-4 md:w-4 fill-yellow-400 text-yellow-400" />
-                        <span className="text-xs md:text-sm font-medium">{item.rating}</span>
-                        <span className="text-xs md:text-sm text-gray-500">({item.reviews})</span>
+                  <div className="p-4 flex-1">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="font-medium text-gray-900 mb-1">{listing.title}</h3>
+                        <p className="text-sm text-gray-600">
+                          {listing.brand} • Size {listing.size}
+                        </p>
                       </div>
-                      <span className="text-gray-300">•</span>
-                      <div className="flex items-center gap-1 text-xs md:text-sm text-gray-600">
-                        <MapPin className="h-3 w-3" />
-                        <span className="truncate">{item.location}</span>
+                      <div className="text-right">
+                        <div className="font-medium text-green-600">${listing.price}</div>
+                        {listing.original_price && (
+                          <div className="text-sm text-gray-500 line-through">
+                            ${listing.original_price}
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 mb-4">
-                      <span className="text-xs md:text-sm text-gray-600">by {item.seller}</span>
-                      <span className="text-gray-300">•</span>
-                      <div className="flex items-center gap-1 text-xs md:text-sm text-gray-500">
-                        <Clock className="h-3 w-3" />
-                        {item.postedTime}
+                    <div className="mt-4 flex items-center gap-4 text-sm text-gray-600">
+                      <div className="flex items-center">
+                        <Star className="h-4 w-4 text-yellow-400 mr-1" />
+                        {listing.rating}
+                      </div>
+                      <div className="flex items-center">
+                        <MapPin className="h-4 w-4 mr-1" />
+                        {listing.location}
+                      </div>
+                      <div className="flex items-center">
+                        <Clock className="h-4 w-4 mr-1" />
+                        {listing.created_at}
                       </div>
                     </div>
 
-                    {/* Action Buttons */}
-                    <div className="grid grid-cols-3 gap-1 md:gap-2">
+                    <div className="mt-4 flex gap-2">
                       <Button
-                        size="sm"
                         variant="outline"
-                        onClick={() => handleSaveItem(item.id)}
-                        className="text-xs p-2"
+                        size="sm"
+                        onClick={() => handleMessage(listing.id)}
+                        className="flex-1"
                       >
-                        <Bookmark className="h-3 w-3 mr-1" />
-                        <span className="hidden sm:inline">Save</span>
+                        <MessageCircle className="h-4 w-4 mr-1" />
+                        Message
                       </Button>
-
-                      {item.tryOnAvailable ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleTryOn(item.id)}
-                          className="text-xs border-purple-200 text-purple-600 hover:bg-purple-50 p-2"
-                        >
-                          <Camera className="h-3 w-3 mr-1" />
-                          <span className="hidden sm:inline">Try</span>
-                        </Button>
-                      ) : (
-                        <div></div>
-                      )}
-
                       <Button
                         size="sm"
-                        onClick={() => handleBuyNow(item.id)}
-                        className="text-xs bg-green-600 hover:bg-green-700 text-white p-2"
+                        onClick={() => handleAddToCart(listing.id)}
+                        className="flex-1 bg-green-600 hover:bg-green-700"
                       >
-                        <MessageCircle className="h-3 w-3 mr-1" />
-                        <span className="hidden sm:inline">Buy</span>
+                        <Bookmark className="h-4 w-4 mr-1" />
+                        Add to Cart
                       </Button>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {/* Load More */}
-            <div className="mt-8 md:mt-12 text-center">
-              <Button variant="outline" size="lg">
-                Load More Items
-              </Button>
-            </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
-        </div>
+        )}
       </div>
 
       <SiteFooter />

@@ -19,6 +19,7 @@ export interface Database {
           bio: string | null
           location: string | null
           created_at: string
+          total_earnings: number | null
         }
         Insert: {
           id: string
@@ -29,6 +30,7 @@ export interface Database {
           bio?: string | null
           location?: string | null
           created_at?: string
+          total_earnings?: number | null
         }
         Update: {
           id?: string
@@ -39,6 +41,7 @@ export interface Database {
           bio?: string | null
           location?: string | null
           created_at?: string
+          total_earnings?: number | null
         }
       }
       listings: {
@@ -50,7 +53,7 @@ export interface Database {
           price: number
           original_price: number | null
           size: string | null
-          image_urls: string[] | null
+          images: string[] | null
           status: string
           created_at: string
           updated_at: string
@@ -73,7 +76,7 @@ export interface Database {
           price: number
           original_price?: number | null
           size?: string | null
-          image_urls?: string[] | null
+          images?: string[] | null
           status?: string
           created_at?: string
           updated_at?: string
@@ -96,7 +99,7 @@ export interface Database {
           price?: number
           original_price?: number | null
           size?: string | null
-          image_urls?: string[] | null
+          images?: string[] | null
           status?: string
           created_at?: string
           updated_at?: string
@@ -110,6 +113,47 @@ export interface Database {
           likes?: number
           tags?: string[] | null
           measurements?: Json | null
+        }
+      }
+      purchases: {
+        Row: {
+          id: string
+          user_id: string
+          listing_id: string
+          status: string
+          created_at: string
+          updated_at: string
+          shipping_address: Json | null
+          tracking_number: string | null
+          payment_status: string
+          payment_method: string | null
+          total_amount: number
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          listing_id: string
+          status?: string
+          created_at?: string
+          updated_at?: string
+          shipping_address?: Json | null
+          tracking_number?: string | null
+          payment_status?: string
+          payment_method?: string | null
+          total_amount: number
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          listing_id?: string
+          status?: string
+          created_at?: string
+          updated_at?: string
+          shipping_address?: Json | null
+          tracking_number?: string | null
+          payment_status?: string
+          payment_method?: string | null
+          total_amount?: number
         }
       }
       messages: {
