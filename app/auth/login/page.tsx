@@ -1,9 +1,33 @@
+'use client'
+
 import Image from "next/image"
 import Link from "next/link"
 import { ArrowLeft, Leaf } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { createClient } from "@/lib/supabase/client"
+import { useRouter } from "next/navigation"
 
 export default function LoginPage() {
+  const router = useRouter()
+  const supabase = createClient()
+
+  const handleGoogleLogin = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      },
+    })
+
+    if (error) {
+      console.error('Error:', error.message)
+    }
+  }
+
   return (
     <div className="min-h-screen flex">
       {/* Left side - Image */}
@@ -41,7 +65,10 @@ export default function LoginPage() {
           </div>
 
           <div className="space-y-6">
-            <Button className="w-full bg-white border-2 border-gray-300 text-gray-700 hover:bg-gray-50 py-6 text-base font-medium flex items-center justify-center gap-3">
+            <Button 
+              onClick={handleGoogleLogin}
+              className="w-full bg-white border-2 border-gray-300 text-gray-700 hover:bg-gray-50 py-6 text-base font-medium flex items-center justify-center gap-3"
+            >
               <svg className="h-5 w-5" viewBox="0 0 24 24">
                 <path
                   fill="currentColor"
