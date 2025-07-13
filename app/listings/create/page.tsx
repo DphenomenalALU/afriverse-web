@@ -64,7 +64,6 @@ export default function CreateListingPage() {
     originalPrice: "",
     sellingPrice: "",
     location: "",
-    negotiable: false,
     tryOnAvailable: false,
   })
 
@@ -176,12 +175,10 @@ export default function CreateListingPage() {
           price: parseFloat(formData.sellingPrice),
           original_price: formData.originalPrice ? parseFloat(formData.originalPrice) : null,
           location: formData.location,
-          negotiable: formData.negotiable,
           try_on_available: formData.tryOnAvailable,
           images: imageUrls, 
           status: 'active',
           views: 0,
-          likes: 0,
         })
 
       if (listingError) {
@@ -446,15 +443,6 @@ export default function CreateListingPage() {
                 </div>
 
                 <div className="space-y-4">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="negotiable"
-                      checked={formData.negotiable}
-                      onCheckedChange={(checked) => setFormData({ ...formData, negotiable: checked as boolean })}
-                    />
-                    <Label htmlFor="negotiable">Price is negotiable</Label>
-                  </div>
-
                   <div className="flex items-center space-x-2">
                     <Checkbox
                       id="tryOnAvailable"

@@ -14,18 +14,16 @@ import ImageWithFallback from "@/components/ui/image-with-fallback"
 export default function ListingsCarousel() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [savedStates, setSavedStates] = useState<Record<string, boolean>>({})
-  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({})
   const { cartItems, addToCart, removeFromCart, isItemSaved } = useCart()
   const { toast } = useToast()
   const { listings, isLoading } = useListings()
 
-  // Load initial saved states and like counts
+  // Load initial saved states
   useEffect(() => {
     if (listings) {
       listings.forEach(async (item) => {
         const saved = await isItemSaved(item.id)
         setSavedStates(prev => ({ ...prev, [item.id]: saved }))
-        setLikeCounts(prev => ({ ...prev, [item.id]: Math.max(0, item.likes || 0) }))
       })
     }
   }, [listings])
@@ -161,7 +159,7 @@ export default function ListingsCarousel() {
                   <div className="flex items-center gap-2 mb-4">
                     <div className="flex items-center gap-1">
                       <Star className="h-3 w-3 md:h-4 md:w-4 fill-yellow-400 text-yellow-400" />
-                      <span className="text-xs md:text-sm font-medium">{likeCounts[item.id] || 0}</span>
+                      <span className="text-xs md:text-sm font-medium">{(item as any).profiles?.rating?.toFixed(1) || 'New'}</span>
                     </div>
                     <span className="text-gray-300">•</span>
                     <div className="flex items-center gap-1 text-xs md:text-sm text-gray-600">

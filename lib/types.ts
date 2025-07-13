@@ -6,6 +6,8 @@ export interface User {
   bio?: string
   location?: string
   joinedAt: Date
+  rating?: number
+  ratingCount?: number
   stats: {
     itemsSold: number
     itemsBought: number
@@ -28,12 +30,11 @@ export interface Listing {
   images: string[]
   tags: string[]
   sellerId: string
-  seller: Pick<User, "id" | "name" | "avatar">
+  seller: Pick<User, "id" | "name" | "avatar" | "rating" | "ratingCount">
   createdAt: Date
   updatedAt: Date
   status: "active" | "sold" | "reserved" | "draft"
   views: number
-  likes: number
   measurements?: {
     chest?: number
     waist?: number

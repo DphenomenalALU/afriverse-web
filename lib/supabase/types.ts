@@ -20,6 +20,8 @@ export interface Database {
           location: string | null
           created_at: string
           total_earnings: number | null
+          rating: number
+          rating_count: number
         }
         Insert: {
           id: string
@@ -31,6 +33,8 @@ export interface Database {
           location?: string | null
           created_at?: string
           total_earnings?: number | null
+          rating?: number
+          rating_count?: number
         }
         Update: {
           id?: string
@@ -42,6 +46,8 @@ export interface Database {
           location?: string | null
           created_at?: string
           total_earnings?: number | null
+          rating?: number
+          rating_count?: number
         }
       }
       listings: {
@@ -61,10 +67,8 @@ export interface Database {
           category: string | null
           condition: string | null
           location: string | null
-          negotiable: boolean
           try_on_available: boolean
           views: number
-          likes: number
           tags: string[] | null
           measurements: Json | null
         }
@@ -84,10 +88,8 @@ export interface Database {
           category?: string | null
           condition?: string | null
           location?: string | null
-          negotiable?: boolean
           try_on_available?: boolean
           views?: number
-          likes?: number
           tags?: string[] | null
           measurements?: Json | null
         }
@@ -107,10 +109,8 @@ export interface Database {
           category?: string | null
           condition?: string | null
           location?: string | null
-          negotiable?: boolean
           try_on_available?: boolean
           views?: number
-          likes?: number
           tags?: string[] | null
           measurements?: Json | null
         }

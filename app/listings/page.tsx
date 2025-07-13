@@ -78,7 +78,6 @@ export default function ListingsPage({ isSearchPage }: ListingsPageProps) {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [savingStates, setSavingStates] = useState<Record<string, boolean>>({})
   const [savedStates, setSavedStates] = useState<Record<string, boolean>>({})
-  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({})
   const { cartItems, addToCart, removeFromCart, isItemSaved } = useCart()
 
   const { listings, isLoading, error } = useListings({
@@ -89,13 +88,12 @@ export default function ListingsPage({ isSearchPage }: ListingsPageProps) {
     sizes: selectedSizes,
   })
 
-  // Load initial saved states and like counts
+  // Load initial saved states
   useEffect(() => {
     if (listings) {
       listings.forEach(async (item) => {
         const saved = await isItemSaved(item.id)
         setSavedStates(prev => ({ ...prev, [item.id]: saved }))
-        setLikeCounts(prev => ({ ...prev, [item.id]: Math.max(0, item.likes || 0) }))
       })
     }
   }, [listings])
@@ -529,7 +527,7 @@ export default function ListingsPage({ isSearchPage }: ListingsPageProps) {
                     <div className="flex items-center gap-3 mt-3 text-sm text-gray-600">
                       <div className="flex items-center">
                         <Star className="h-4 w-4 text-yellow-400 fill-yellow-400 mr-1" />
-                        <span>{likeCounts[listing.id] || 0}</span>
+                        <span>{(listing as any).profiles?.rating?.toFixed(1) || 'New'}</span>
                       </div>
                       <span className="text-gray-300">•</span>
                       <div className="flex items-center">
