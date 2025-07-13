@@ -18,26 +18,6 @@ interface CartItem {
   seller_name: string
 }
 
-interface ListingWithQuantity {
-  id: string
-  listings: {
-    id: string
-    title: string
-    price: number
-    size: string
-    image_urls: string[]
-    try_on_enabled: boolean
-    try_on_available: boolean
-    condition: string
-    location: string
-    original_price: number
-    brand: string
-    profiles: {
-      name: string
-    }
-  }
-}
-
 const CART_STORAGE_KEY = 'afriverse_cart'
 
 // Create a custom event for cart updates
@@ -55,7 +35,7 @@ export function useCart() {
 
   // Load cart from localStorage on mount and listen for updates
   useEffect(() => {
-    loadCart()
+    loadLocalCart()
     
     // Listen for cart updates from other components
     const handleCartUpdate = (event: CustomEvent<CartItem[]>) => {
@@ -93,96 +73,11 @@ export function useCart() {
     }
   }
 
-  // Sync localStorage cart with database
-  const syncWithDatabase = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-
-      // Get cart items from database
-      const { data: dbItems } = await supabase
-        .from('cart_items')
-        .select(`
-          id,
-          listings!inner (
-            id,
-            title,
-            price,
-            size,
-            image_urls,
-            try_on_enabled,
-            condition,
-            location,
-            original_price
-          )
-        `)
-        .eq('user_id', session.user.id)
-        .returns<ListingWithQuantity[]>()
-
-      if (!dbItems) return
-
-      // Convert DB items to CartItem format
-      const dbCartItems = dbItems.map(item => ({
-        id: item.listings.id,
-        title: item.listings.title,
-        price: item.listings.price,
-        size: item.listings.size,
-        image: item.listings.image_urls[0],
-        try_on_enabled: item.listings.try_on_enabled || false,
-        try_on_available: item.listings.try_on_available || false,
-        condition: item.listings.condition || 'New',
-        location: item.listings.location || 'Unknown',
-        original_price: item.listings.original_price || item.listings.price,
-        brand: item.listings.brand || 'Unknown',
-        seller_name: item.listings.profiles?.name || 'Anonymous'
-      }))
-
-      // Merge local and DB items
-      const localItems = JSON.parse(localStorage.getItem(CART_STORAGE_KEY) || '[]')
-      const mergedItems = [...new Map([...localItems, ...dbCartItems].map(item => [item.id, item])).values()]
-      
-      // Update localStorage and state
-      saveLocalCart(mergedItems)
-      setCartItems(mergedItems)
-
-      // Sync back to database
-      const localItemIds = new Set(localItems.map((item: CartItem) => item.id))
-      const dbItemIds = new Set(dbCartItems.map(item => item.id))
-
-      // Add new local items to DB
-      const itemsToAdd = localItems.filter((item: CartItem) => !dbItemIds.has(item.id))
-      if (itemsToAdd.length > 0) {
-        await supabase
-          .from('cart_items')
-          .insert(itemsToAdd.map((item: CartItem) => ({
-            user_id: session.user.id,
-            listing_id: item.id
-          })))
-      }
-
-      // Remove items from DB that aren't in local
-      const itemsToRemove = dbCartItems.filter(item => !localItemIds.has(item.id))
-      if (itemsToRemove.length > 0) {
-        await supabase
-          .from('cart_items')
-          .delete()
-          .in('listing_id', itemsToRemove.map(item => item.id))
-          .eq('user_id', session.user.id)
-      }
-    } catch (error) {
-      console.error('Error syncing with database:', error)
-    }
-  }
-
-  const loadCart = async () => {
-    // First load from localStorage for instant response
-    loadLocalCart()
-    // Then sync with database in background
-    await syncWithDatabase()
-  }
-
-  const isItemSaved = (listingId: string) => {
-    return cartItems.some(item => item.id === listingId)
+  const isItemSaved = (itemId: string): boolean => {
+    const savedCart = localStorage.getItem(CART_STORAGE_KEY)
+    if (!savedCart) return false
+    const items = JSON.parse(savedCart)
+    return items.some((item: CartItem) => item.id === itemId)
   }
 
   const addToCart = async (listing: any) => {
@@ -202,19 +97,23 @@ export function useCart() {
         seller_name: listing.profiles?.name || 'Anonymous'
       }
 
+      // Update local storage first for immediate feedback
       const updatedItems = [...cartItems, newItem]
       saveLocalCart(updatedItems)
 
-      // Sync with database in background
+      // Sync with database in background if user is logged in
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
-        await supabase
+        const { error } = await supabase
           .from('cart_items')
           .insert({
             user_id: session.user.id,
             listing_id: listing.id,
           })
-          .throwOnError()
+        
+        if (error) {
+          console.error('Background sync error:', error)
+        }
       }
 
       return { success: true }
@@ -226,18 +125,22 @@ export function useCart() {
 
   const removeFromCart = async (itemId: string) => {
     try {
+      // Update local storage first for immediate feedback
       const updatedItems = cartItems.filter(item => item.id !== itemId)
       saveLocalCart(updatedItems)
 
-      // Sync with database in background
+      // Sync with database in background if user is logged in
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
-        await supabase
+        const { error } = await supabase
           .from('cart_items')
           .delete()
           .eq('listing_id', itemId)
           .eq('user_id', session.user.id)
-          .throwOnError()
+        
+        if (error) {
+          console.error('Background sync error:', error)
+        }
       }
 
       return { success: true }
@@ -252,7 +155,6 @@ export function useCart() {
     isLoading,
     addToCart,
     removeFromCart,
-    loadCart,
     isItemSaved,
   }
 } 
