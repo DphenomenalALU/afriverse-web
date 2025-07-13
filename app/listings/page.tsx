@@ -90,7 +90,7 @@ export default function ListingsPage() {
       listings.forEach(async (item) => {
         const saved = await isItemSaved(item.id)
         setSavedStates(prev => ({ ...prev, [item.id]: saved }))
-        setLikeCounts(prev => ({ ...prev, [item.id]: item.likes || 0 }))
+        setLikeCounts(prev => ({ ...prev, [item.id]: Math.max(0, item.likes || 0) }))
       })
     }
   }, [listings])
@@ -106,13 +106,11 @@ export default function ListingsPage() {
       if (saved) {
         // Optimistically update UI
         setSavedStates(prev => ({ ...prev, [listing.id]: false }))
-        setLikeCounts(prev => ({ ...prev, [listing.id]: (prev[listing.id] || 0) - 1 }))
         
         const result = await removeFromCart(listing.id)
         if (!result.success) {
           // Revert UI if operation fails
           setSavedStates(prev => ({ ...prev, [listing.id]: true }))
-          setLikeCounts(prev => ({ ...prev, [listing.id]: (prev[listing.id] || 0) + 1 }))
           toast({
             title: "Error removing item",
             description: "Please try again",
@@ -122,13 +120,11 @@ export default function ListingsPage() {
       } else {
         // Optimistically update UI
         setSavedStates(prev => ({ ...prev, [listing.id]: true }))
-        setLikeCounts(prev => ({ ...prev, [listing.id]: (prev[listing.id] || 0) + 1 }))
         
         const result = await addToCart(listing)
         if (!result.success) {
           // Revert UI if operation fails
           setSavedStates(prev => ({ ...prev, [listing.id]: false }))
-          setLikeCounts(prev => ({ ...prev, [listing.id]: (prev[listing.id] || 0) - 1 }))
           toast({
             title: "Error saving item",
             description: "Please try again",

@@ -25,7 +25,7 @@ export default function ListingsCarousel() {
       listings.forEach(async (item) => {
         const saved = await isItemSaved(item.id)
         setSavedStates(prev => ({ ...prev, [item.id]: saved }))
-        setLikeCounts(prev => ({ ...prev, [item.id]: item.likes || 0 }))
+        setLikeCounts(prev => ({ ...prev, [item.id]: Math.max(0, item.likes || 0) }))
       })
     }
   }, [listings])
@@ -44,13 +44,11 @@ export default function ListingsCarousel() {
       if (saved) {
         // Optimistically update UI
         setSavedStates(prev => ({ ...prev, [item.id]: false }))
-        setLikeCounts(prev => ({ ...prev, [item.id]: (prev[item.id] || 0) - 1 }))
         
         const result = await removeFromCart(item.id)
         if (!result.success) {
           // Revert UI if operation fails
           setSavedStates(prev => ({ ...prev, [item.id]: true }))
-          setLikeCounts(prev => ({ ...prev, [item.id]: (prev[item.id] || 0) + 1 }))
           toast({
             title: "Error removing item",
             description: "Please try again",
@@ -60,13 +58,11 @@ export default function ListingsCarousel() {
       } else {
         // Optimistically update UI
         setSavedStates(prev => ({ ...prev, [item.id]: true }))
-        setLikeCounts(prev => ({ ...prev, [item.id]: (prev[item.id] || 0) + 1 }))
         
         const result = await addToCart(item)
         if (!result.success) {
           // Revert UI if operation fails
           setSavedStates(prev => ({ ...prev, [item.id]: false }))
-          setLikeCounts(prev => ({ ...prev, [item.id]: (prev[item.id] || 0) - 1 }))
           toast({
             title: "Error saving item",
             description: "Please try again",
@@ -122,14 +118,14 @@ export default function ListingsCarousel() {
         >
           {listings.map((item) => (
             <div key={item.id} className="w-full md:w-1/2 lg:w-1/3 flex-shrink-0 px-2 md:px-3">
-              <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-                <div className="relative">
+              <Card className="overflow-hidden hover:shadow-lg transition-shadow max-w-md mx-auto">
+                <div className="relative w-full aspect-[4/3]">
                   <ImageWithFallback
                     src={item.images?.[0] || "/placeholder.jpg"}
                     alt={item.title}
-                    width={400}
-                    height={300}
-                    className="w-full h-48 md:h-64 object-cover"
+                    width={500}
+                    height={500}
+                    className="w-full h-full object-cover"
                   />
 
                   <Badge className="absolute top-3 left-3 bg-white/90 text-gray-900 text-xs">{item.condition}</Badge>
@@ -142,9 +138,9 @@ export default function ListingsCarousel() {
                   )}
                 </div>
 
-                <CardContent className="p-3 md:p-4">
-                  <div className="mb-3">
-                    <h3 className="font-semibold text-gray-900 mb-1 text-sm md:text-base line-clamp-1">{item.title}</h3>
+                <CardContent className="pt-1.6 px-2 pb-2">
+                  <div className="space-y-0.5">
+                    <h3 className="font-semibold text-gray-900 text-sm md:text-base line-clamp-1">{item.title}</h3>
                     <p className="text-xs md:text-sm text-gray-600">
                       {item.brand} • Size {item.size}
                     </p>

@@ -9,10 +9,13 @@ interface CartItem {
   price: number
   size: string
   image: string
+  try_on_available: boolean
   try_on_enabled: boolean
   condition: string
   location: string
   original_price: number
+  brand: string
+  seller_name: string
 }
 
 interface ListingWithQuantity {
@@ -24,9 +27,24 @@ interface ListingWithQuantity {
     size: string
     image_urls: string[]
     try_on_enabled: boolean
+    try_on_available: boolean
     condition: string
     location: string
     original_price: number
+    brand: string
+    profiles: {
+      name: string
+    }
+  }
+}
+
+const CART_STORAGE_KEY = 'afriverse_cart'
+
+// Create a custom event for cart updates
+const CART_UPDATE_EVENT = 'afriverse_cart_update'
+const emitCartUpdate = (items: CartItem[]) => {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(CART_UPDATE_EVENT, { detail: items }))
   }
 }
 
@@ -35,145 +53,168 @@ export function useCart() {
   const [isLoading, setIsLoading] = useState(true)
   const supabase = createClient()
 
+  // Load cart from localStorage on mount and listen for updates
   useEffect(() => {
     loadCart()
-
-    // Subscribe to cart changes
-    const channel = supabase
-      .channel('cart_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'cart_items',
-        },
-        () => {
-          loadCart()
-        }
-      )
-      .subscribe()
-
+    
+    // Listen for cart updates from other components
+    const handleCartUpdate = (event: CustomEvent<CartItem[]>) => {
+      setCartItems(event.detail)
+    }
+    
+    window.addEventListener(CART_UPDATE_EVENT as any, handleCartUpdate as any)
     return () => {
-      supabase.removeChannel(channel)
+      window.removeEventListener(CART_UPDATE_EVENT as any, handleCartUpdate as any)
     }
   }, [])
 
-  const loadCart = async () => {
+  const loadLocalCart = () => {
     try {
-      setIsLoading(true)
-      const { data: { session } } = await supabase.auth.getSession()
-
-      if (session) {
-        // Load cart from database
-        const { data, error } = await supabase
-          .from('cart_items')
-          .select(`
-            id,
-            listings!inner (
-              id,
-              title,
-              price,
-              size,
-              image_urls,
-              try_on_enabled,
-              condition,
-              location,
-              original_price
-            )
-          `)
-          .eq('user_id', session.user.id)
-          .returns<ListingWithQuantity[]>()
-
-        if (error) throw error
-
-        setCartItems(data.map(item => ({
-          id: item.id,
-          title: item.listings.title,
-          price: item.listings.price,
-          size: item.listings.size,
-          image: item.listings.image_urls[0],
-          try_on_enabled: item.listings.try_on_enabled || false,
-          condition: item.listings.condition || 'New',
-          location: item.listings.location || 'Unknown',
-          original_price: item.listings.original_price || item.listings.price,
-        })))
-      } else {
-        // Load cart from local storage for guest users
-        const savedCart = localStorage.getItem('guest_cart')
-        if (savedCart) {
-          setCartItems(JSON.parse(savedCart))
-        }
+      const savedCart = localStorage.getItem(CART_STORAGE_KEY)
+      if (savedCart) {
+        const items = JSON.parse(savedCart)
+        setCartItems(items)
+        emitCartUpdate(items)
       }
+      setIsLoading(false)
     } catch (error) {
-      console.error('Error loading cart:', error)
-    } finally {
+      console.error('Error loading local cart:', error)
       setIsLoading(false)
     }
   }
 
-  const isItemSaved = async (listingId: string) => {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return cartItems.some(item => item.id === listingId)
+  const saveLocalCart = (items: CartItem[]) => {
+    try {
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items))
+      setCartItems(items)
+      emitCartUpdate(items)
+    } catch (error) {
+      console.error('Error saving to local cart:', error)
+    }
+  }
 
-    const { data } = await supabase
-      .from('cart_items')
-      .select('id')
-      .eq('user_id', session.user.id)
-      .eq('listing_id', listingId)
-      .single()
+  // Sync localStorage cart with database
+  const syncWithDatabase = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
 
-    return !!data
+      // Get cart items from database
+      const { data: dbItems } = await supabase
+        .from('cart_items')
+        .select(`
+          id,
+          listings!inner (
+            id,
+            title,
+            price,
+            size,
+            image_urls,
+            try_on_enabled,
+            condition,
+            location,
+            original_price
+          )
+        `)
+        .eq('user_id', session.user.id)
+        .returns<ListingWithQuantity[]>()
+
+      if (!dbItems) return
+
+      // Convert DB items to CartItem format
+      const dbCartItems = dbItems.map(item => ({
+        id: item.listings.id,
+        title: item.listings.title,
+        price: item.listings.price,
+        size: item.listings.size,
+        image: item.listings.image_urls[0],
+        try_on_enabled: item.listings.try_on_enabled || false,
+        try_on_available: item.listings.try_on_available || false,
+        condition: item.listings.condition || 'New',
+        location: item.listings.location || 'Unknown',
+        original_price: item.listings.original_price || item.listings.price,
+        brand: item.listings.brand || 'Unknown',
+        seller_name: item.listings.profiles?.name || 'Anonymous'
+      }))
+
+      // Merge local and DB items
+      const localItems = JSON.parse(localStorage.getItem(CART_STORAGE_KEY) || '[]')
+      const mergedItems = [...new Map([...localItems, ...dbCartItems].map(item => [item.id, item])).values()]
+      
+      // Update localStorage and state
+      saveLocalCart(mergedItems)
+      setCartItems(mergedItems)
+
+      // Sync back to database
+      const localItemIds = new Set(localItems.map((item: CartItem) => item.id))
+      const dbItemIds = new Set(dbCartItems.map(item => item.id))
+
+      // Add new local items to DB
+      const itemsToAdd = localItems.filter((item: CartItem) => !dbItemIds.has(item.id))
+      if (itemsToAdd.length > 0) {
+        await supabase
+          .from('cart_items')
+          .insert(itemsToAdd.map((item: CartItem) => ({
+            user_id: session.user.id,
+            listing_id: item.id
+          })))
+      }
+
+      // Remove items from DB that aren't in local
+      const itemsToRemove = dbCartItems.filter(item => !localItemIds.has(item.id))
+      if (itemsToRemove.length > 0) {
+        await supabase
+          .from('cart_items')
+          .delete()
+          .in('listing_id', itemsToRemove.map(item => item.id))
+          .eq('user_id', session.user.id)
+      }
+    } catch (error) {
+      console.error('Error syncing with database:', error)
+    }
+  }
+
+  const loadCart = async () => {
+    // First load from localStorage for instant response
+    loadLocalCart()
+    // Then sync with database in background
+    await syncWithDatabase()
+  }
+
+  const isItemSaved = (listingId: string) => {
+    return cartItems.some(item => item.id === listingId)
   }
 
   const addToCart = async (listing: any) => {
     try {
+      const newItem = {
+        id: listing.id,
+        title: listing.title,
+        price: listing.price,
+        size: listing.size,
+        image: listing.images?.[0] || listing.image_urls?.[0],
+        try_on_enabled: listing.try_on_enabled || false,
+        try_on_available: listing.try_on_available || false,
+        condition: listing.condition || 'New',
+        location: listing.location || 'Unknown',
+        original_price: listing.original_price || listing.price,
+        brand: listing.brand || 'Unknown',
+        seller_name: listing.profiles?.name || 'Anonymous'
+      }
+
+      const updatedItems = [...cartItems, newItem]
+      saveLocalCart(updatedItems)
+
+      // Sync with database in background
       const { data: { session } } = await supabase.auth.getSession()
-
       if (session) {
-        // Optimistically update UI
-        const newItem = {
-          id: listing.id,
-          title: listing.title,
-          price: listing.price,
-          size: listing.size,
-          image: listing.images?.[0] || listing.image_urls?.[0],
-          try_on_enabled: listing.try_on_enabled || false,
-          condition: listing.condition || 'New',
-          location: listing.location || 'Unknown',
-          original_price: listing.original_price || listing.price,
-        }
-        setCartItems(prev => [...prev, newItem])
-
-        // Add to database in background
-        const { error } = await supabase
+        await supabase
           .from('cart_items')
           .insert({
             user_id: session.user.id,
             listing_id: listing.id,
           })
-
-        if (error) {
-          // Revert UI if operation fails
-          setCartItems(prev => prev.filter(item => item.id !== listing.id))
-          throw error
-        }
-      } else {
-        // Add to local storage
-        const newItem = {
-          id: listing.id,
-          title: listing.title,
-          price: listing.price,
-          size: listing.size,
-          image: listing.images?.[0] || listing.image_urls?.[0],
-          try_on_enabled: listing.try_on_enabled || false,
-          condition: listing.condition || 'New',
-          location: listing.location || 'Unknown',
-          original_price: listing.original_price || listing.price,
-        }
-        const updatedItems = [...cartItems, newItem]
-        localStorage.setItem('guest_cart', JSON.stringify(updatedItems))
-        setCartItems(updatedItems)
+          .throwOnError()
       }
 
       return { success: true }
@@ -185,34 +226,18 @@ export function useCart() {
 
   const removeFromCart = async (itemId: string) => {
     try {
+      const updatedItems = cartItems.filter(item => item.id !== itemId)
+      saveLocalCart(updatedItems)
+
+      // Sync with database in background
       const { data: { session } } = await supabase.auth.getSession()
-
       if (session) {
-        // Optimistically update UI
-        setCartItems(prev => prev.filter(item => item.id !== itemId))
-
-        // Remove from database in background
-        const { error } = await supabase
+        await supabase
           .from('cart_items')
           .delete()
           .eq('listing_id', itemId)
           .eq('user_id', session.user.id)
-
-        if (error) {
-          // Revert UI if operation fails
-          const { data } = await supabase
-            .from('cart_items')
-            .select('*')
-            .eq('listing_id', itemId)
-            .single()
-          if (data) setCartItems(prev => [...prev, data])
-          throw error
-        }
-      } else {
-        // Remove from local storage
-        const updatedItems = cartItems.filter(item => item.id !== itemId)
-        localStorage.setItem('guest_cart', JSON.stringify(updatedItems))
-        setCartItems(updatedItems)
+          .throwOnError()
       }
 
       return { success: true }

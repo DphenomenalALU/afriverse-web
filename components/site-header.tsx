@@ -3,17 +3,12 @@ import Link from "next/link"
 import Image from "next/image"
 import { Menu, ShoppingBag, User2, Search, X, Heart } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useCart } from "@/hooks/use-cart"
 
 export default function SiteHeader() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const { cartItems, loadCart } = useCart()
-
-  // Subscribe to cart changes
-  useEffect(() => {
-    loadCart()
-  }, [loadCart])
+  const { cartItems } = useCart()
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white/95 backdrop-blur-md">
