@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { useToast } from "@/hooks/use-toast"
-import { Trash2, ShoppingBag, ArrowRight } from "lucide-react"
+import { Trash2, ShoppingBag, ArrowRight, ArrowLeft, Heart, MessageCircle, Plus, AlertCircle, Shield, Sparkles } from "lucide-react"
 import type { Database } from "@/lib/supabase/types"
 
 import { Button } from "@/components/ui/button"
@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator"
 import ImageWithFallback from "@/components/ui/image-with-fallback"
 import SiteHeader from "@/components/site-header"
 import SiteFooter from "@/components/site-footer"
+import { Badge } from "@/components/ui/badge"
 
 interface CartItem {
   id: string
@@ -21,6 +22,10 @@ interface CartItem {
   size: string
   image: string
   quantity: number
+  try_on_enabled: boolean
+  condition: string
+  location: string
+  original_price: number
 }
 
 interface CartItemWithListing {
@@ -78,6 +83,10 @@ export default function CartPage() {
           size: item.listings.size,
           image: item.listings.image_urls[0],
           quantity: item.quantity,
+          try_on_enabled: false, // Placeholder, needs actual data
+          condition: "New", // Placeholder
+          location: "Nairobi", // Placeholder
+          original_price: item.listings.price, // Placeholder
         })))
       } else {
         // Load cart from local storage for guest users
@@ -95,36 +104,6 @@ export default function CartPage() {
       })
     } finally {
       setIsLoading(false)
-    }
-  }
-
-  const updateQuantity = async (itemId: string, newQuantity: number) => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-
-      if (session) {
-        // Update quantity in database
-        const { error } = await supabase
-          .from('cart_items')
-          .update({ quantity: newQuantity })
-          .eq('id', itemId)
-
-        if (error) throw error
-      }
-
-      // Update quantity in state and local storage
-      const updatedItems = cartItems.map(item =>
-        item.id === itemId ? { ...item, quantity: newQuantity } : item
-      )
-      localStorage.setItem('guest_cart', JSON.stringify(updatedItems))
-      setCartItems(updatedItems)
-    } catch (error) {
-      console.error('Error updating quantity:', error)
-      toast({
-        title: "Error updating quantity",
-        description: "Please try again later.",
-        variant: "destructive",
-      })
     }
   }
 
@@ -149,7 +128,7 @@ export default function CartPage() {
 
       toast({
         title: "Item removed",
-        description: "The item has been removed from your cart.",
+        description: "The item has been removed from your saved items.",
       })
     } catch (error) {
       console.error('Error removing item:', error)
@@ -161,36 +140,15 @@ export default function CartPage() {
     }
   }
 
-  const handleCheckout = async () => {
-    const { data: { session } } = await supabase.auth.getSession()
-
-    if (!session) {
-      // Save cart to local storage
-      localStorage.setItem('guest_cart', JSON.stringify(cartItems))
-      
-      toast({
-        title: "Sign in required",
-        description: "Please sign in to complete your purchase.",
-      })
-      
-      router.push('/auth/login')
-      return
-    }
-
-    // TODO: Implement checkout process
-    router.push('/checkout')
-  }
-
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-  const shipping = 10 // Fixed shipping cost
-  const total = subtotal + shipping
+  const subtotal = cartItems.reduce((sum, item) => sum + item.price, 0)
+  const savings = cartItems.reduce((sum, item) => sum + (item.original_price - item.price), 0)
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
         <SiteHeader />
         <div className="container py-8">
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-6xl mx-auto">
             <div className="animate-pulse space-y-4">
               <div className="h-8 bg-gray-200 rounded w-1/4"></div>
               <div className="h-64 bg-gray-200 rounded"></div>
@@ -208,20 +166,25 @@ export default function CartPage() {
       <SiteHeader />
 
       <div className="container py-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center gap-3 mb-8">
-            <ShoppingBag className="h-6 w-6 text-gray-600" />
-            <h1 className="text-2xl font-bold text-gray-900">Shopping Cart</h1>
-            <span className="text-gray-500">({cartItems.length} items)</span>
-          </div>
+        <div className="max-w-6xl mx-auto">
+          <button 
+            onClick={() => router.back()}
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Continue Shopping
+          </button>
+
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Saved Items</h1>
+          <p className="text-gray-600 mb-8">Items you've saved for later comparison and purchase</p>
 
           {cartItems.length === 0 ? (
             <Card>
               <CardContent className="py-12">
                 <div className="text-center">
                   <ShoppingBag className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h2 className="text-xl font-semibold text-gray-900 mb-2">Your cart is empty</h2>
-                  <p className="text-gray-600 mb-6">Start shopping to add items to your cart</p>
+                  <h2 className="text-xl font-semibold text-gray-900 mb-2">No saved items yet</h2>
+                  <p className="text-gray-600 mb-6">Start exploring to find items you love</p>
                   <Button onClick={() => router.push('/listings')}>
                     Browse Listings
                     <ArrowRight className="h-4 w-4 ml-2" />
@@ -231,86 +194,126 @@ export default function CartPage() {
             </Card>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Cart Items */}
-              <div className="lg:col-span-2">
-                <Card>
-                  <CardContent className="divide-y">
-                    {cartItems.map((item) => (
-                      <div key={item.id} className="py-6 first:pt-4 last:pb-4">
-                        <div className="flex gap-4">
-                          <div className="relative w-24 h-24">
-                            <ImageWithFallback
-                              src={item.image}
-                              alt={item.title}
-                              width={96}
-                              height={96}
-                              className="object-cover rounded-lg"
-                            />
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="font-medium text-gray-900">{item.title}</h3>
-                            <p className="text-sm text-gray-600 mb-2">Size: {item.size}</p>
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <select
-                                  value={item.quantity}
-                                  onChange={(e) => updateQuantity(item.id, parseInt(e.target.value))}
-                                  className="rounded-md border-gray-300 text-sm"
-                                >
-                                  {[1, 2, 3, 4, 5].map((num) => (
-                                    <option key={num} value={num}>
-                                      {num}
-                                    </option>
-                                  ))}
-                                </select>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => removeItem(item.id)}
-                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+              {/* Saved Items */}
+              <div className="lg:col-span-2 space-y-4">
+                {cartItems.map((item) => (
+                  <Card key={item.id}>
+                    <CardContent className="p-4">
+                      <div className="flex gap-4">
+                        <div className="relative w-32 h-32">
+                          {item.try_on_enabled && (
+                            <Badge 
+                              className="absolute top-2 left-2 bg-purple-500 text-white"
+                              variant="secondary"
+                            >
+                              Try-On
+                            </Badge>
+                          )}
+                          <ImageWithFallback
+                            src={item.image}
+                            alt={item.title}
+                            width={128}
+                            height={128}
+                            className="object-cover rounded-lg"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h3 className="font-medium text-gray-900">{item.title}</h3>
+                              <p className="text-sm text-gray-600">Size: {item.size}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge variant="outline">{item.condition}</Badge>
+                                <Badge variant="outline">{item.location}</Badge>
                               </div>
-                              <span className="font-medium text-gray-900">
-                                ${(item.price * item.quantity).toFixed(2)}
-                              </span>
+                            </div>
+                            <button
+                              onClick={() => removeItem(item.id)}
+                              className="text-gray-400 hover:text-gray-600"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                          <div className="flex items-center justify-between mt-4">
+                            <div className="flex items-center gap-4">
+                              {item.try_on_enabled && (
+                                <Button variant="outline" size="sm" onClick={() => router.push(`/try-on?item=${item.id}`)}>
+                                  Try-On
+                                </Button>
+                              )}
+                              <Button size="sm" onClick={() => router.push(`/listings/${item.id}`)}>
+                                Buy Now
+                              </Button>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-lg font-semibold text-green-600">${item.price}</div>
+                              {item.original_price > item.price && (
+                                <div className="text-sm text-gray-500 line-through">
+                                  ${item.original_price}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
                       </div>
-                    ))}
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
 
-              {/* Order Summary */}
+              {/* Summary Card */}
               <div>
                 <Card>
                   <CardContent className="p-6">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4">Order Summary</h2>
+                    <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900 mb-4">
+                      <Heart className="h-5 w-5 text-gray-600" />
+                      Saved Items Summary
+                    </h2>
                     <div className="space-y-3 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Subtotal</span>
+                        <span className="text-gray-600">Total Items:</span>
+                        <span className="font-medium text-gray-900">{cartItems.length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Total Value:</span>
                         <span className="font-medium text-gray-900">${subtotal.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Shipping</span>
-                        <span className="font-medium text-gray-900">${shipping.toFixed(2)}</span>
-                      </div>
-                      <Separator className="my-4" />
-                      <div className="flex justify-between text-base font-semibold">
-                        <span className="text-gray-900">Total</span>
-                        <span className="text-green-600">${total.toFixed(2)}</span>
+                        <span className="text-gray-600">Total Savings:</span>
+                        <span className="font-medium text-green-600">${savings.toFixed(2)}</span>
                       </div>
                     </div>
-                    <Button
-                      onClick={handleCheckout}
-                      className="w-full mt-6 bg-green-600 hover:bg-green-700"
-                    >
-                      Proceed to Checkout
-                      <ArrowRight className="h-4 w-4 ml-2" />
-                    </Button>
+                    <div className="mt-6 space-y-3">
+                      <Button 
+                        onClick={() => {}} 
+                        className="w-full flex items-center justify-center gap-2"
+                        variant="outline"
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                        Contact All Sellers
+                      </Button>
+                      <Button 
+                        onClick={() => router.push('/listings')} 
+                        className="w-full flex items-center justify-center gap-2"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Add More Items
+                      </Button>
+                    </div>
+                    <div className="mt-6 space-y-2 text-sm text-gray-600">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 text-yellow-500" />
+                        Items in your saved list may sell quickly!
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Shield className="h-4 w-4 text-green-500" />
+                        All purchases are protected by Afriverse escrow
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-purple-500" />
+                        Try-on available items with AR technology
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               </div>

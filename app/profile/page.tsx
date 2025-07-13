@@ -76,6 +76,7 @@ export default async function ProfilePage() {
         name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || null,
         email: session.user.email,
         impact_score: 0,
+        avatar_url: session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture || null,
         created_at: new Date().toISOString(),
         total_earnings: 0
       }
@@ -185,7 +186,10 @@ export default async function ProfilePage() {
         <div className="bg-white rounded-2xl shadow-sm p-4 md:p-8 mb-6 md:mb-8">
           <div className="flex flex-col md:flex-row items-start gap-4 md:gap-6">
             <Avatar className="h-20 w-20 md:h-24 md:w-24 mx-auto md:mx-0">
-              <AvatarImage src={profile.avatar_url || "/placeholder-user.jpg"} alt={profile.name || ''} />
+              <AvatarImage 
+                src={profile.avatar_url || session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture || "/placeholder-user.jpg"} 
+                alt={profile.name || ''} 
+              />
               <AvatarFallback className="text-xl md:text-2xl">
                 {profile.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || '?'}
               </AvatarFallback>

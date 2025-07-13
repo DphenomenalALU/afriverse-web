@@ -1,11 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, Filter, Grid3X3, List, Bookmark, MessageCircle, Camera, MapPin, Clock, Star } from "lucide-react"
+import { Search, Filter, Grid3X3, List, Bookmark, MessageCircle, Camera, MapPin, Clock, Star, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { useListings } from "@/hooks/use-listings"
 import { useToast } from "@/hooks/use-toast"
+import { useCart } from "@/hooks/use-cart"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -70,6 +71,10 @@ export default function ListingsPage() {
   const [selectedConditions, setSelectedConditions] = useState<string[]>([])
   const [selectedSizes, setSelectedSizes] = useState<string[]>([])
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
+  const [savingStates, setSavingStates] = useState<Record<string, boolean>>({})
+  const [savedStates, setSavedStates] = useState<Record<string, boolean>>({})
+  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({})
+  const { cartItems, addToCart, removeFromCart, isItemSaved } = useCart()
 
   const { listings, isLoading, error } = useListings({
     searchQuery,
@@ -79,62 +84,63 @@ export default function ListingsPage() {
     sizes: selectedSizes,
   })
 
+  // Load initial saved states and like counts
+  useEffect(() => {
+    if (listings) {
+      listings.forEach(async (item) => {
+        const saved = await isItemSaved(item.id)
+        setSavedStates(prev => ({ ...prev, [item.id]: saved }))
+        setLikeCounts(prev => ({ ...prev, [item.id]: item.likes || 0 }))
+      })
+    }
+  }, [listings])
+
   // Helper function to get condition label
   const getConditionLabel = (value: string) => {
     return conditions.find(c => c.value === value)?.label || value
   }
 
-  const handleAddToCart = async (listingId: string) => {
+  const handleAddToCart = async (listing: any) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-
-      if (session) {
-        // Add to cart in database
-        const { error } = await supabase
-          .from('cart_items')
-          .insert({
-            user_id: session.user.id,
-            listing_id: listingId,
-            quantity: 1,
+      const saved = await isItemSaved(listing.id)
+      if (saved) {
+        // Optimistically update UI
+        setSavedStates(prev => ({ ...prev, [listing.id]: false }))
+        setLikeCounts(prev => ({ ...prev, [listing.id]: (prev[listing.id] || 0) - 1 }))
+        
+        const result = await removeFromCart(listing.id)
+        if (!result.success) {
+          // Revert UI if operation fails
+          setSavedStates(prev => ({ ...prev, [listing.id]: true }))
+          setLikeCounts(prev => ({ ...prev, [listing.id]: (prev[listing.id] || 0) + 1 }))
+          toast({
+            title: "Error removing item",
+            description: "Please try again",
+            variant: "destructive",
           })
-
-        if (error) throw error
-
-        toast({
-          title: "Added to cart",
-          description: "The item has been added to your cart.",
-        })
-      } else {
-        // Add to cart in local storage
-        const savedCart = localStorage.getItem('guest_cart') || '[]'
-        const cartItems = JSON.parse(savedCart)
-        const listing = listings.find(l => l.id === listingId)
-
-        if (!listing) return
-
-        // Update the cart item creation
-        const newItem = {
-          id: listingId,
-          title: listing.title,
-          price: listing.price,
-          size: listing.size,
-          image: listing.images?.[0],  // Change from image_urls to images
-          quantity: 1,
         }
-
-        cartItems.push(newItem)
-        localStorage.setItem('guest_cart', JSON.stringify(cartItems))
-
-        toast({
-          title: "Added to cart",
-          description: "The item has been added to your cart.",
-        })
+      } else {
+        // Optimistically update UI
+        setSavedStates(prev => ({ ...prev, [listing.id]: true }))
+        setLikeCounts(prev => ({ ...prev, [listing.id]: (prev[listing.id] || 0) + 1 }))
+        
+        const result = await addToCart(listing)
+        if (!result.success) {
+          // Revert UI if operation fails
+          setSavedStates(prev => ({ ...prev, [listing.id]: false }))
+          setLikeCounts(prev => ({ ...prev, [listing.id]: (prev[listing.id] || 0) - 1 }))
+          toast({
+            title: "Error saving item",
+            description: "Please try again",
+            variant: "destructive",
+          })
+        }
       }
     } catch (error) {
-      console.error('Error adding to cart:', error)
+      console.error("Error toggling cart item:", error)
       toast({
-        title: "Error adding to cart",
-        description: "Please try again later.",
+        title: "Error",
+        description: "Something went wrong",
         variant: "destructive",
       })
     }
@@ -398,7 +404,7 @@ export default function ListingsPage() {
         <div
           className={
             viewMode === "grid"
-              ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+              ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6"
               : "space-y-4"
           }
         >
@@ -488,7 +494,7 @@ export default function ListingsPage() {
                     <div className="flex items-center gap-3 mt-3 text-sm text-gray-600">
                       <div className="flex items-center">
                         <Star className="h-4 w-4 text-yellow-400 fill-yellow-400 mr-1" />
-                        <span>{listing.likes || 0}</span>
+                        <span>{likeCounts[listing.id] || 0}</span>
                       </div>
                       <span className="text-gray-300">•</span>
                       <div className="flex items-center">
@@ -501,22 +507,26 @@ export default function ListingsPage() {
                       by {(listing as any).profiles?.name || 'Anonymous'} • {listing.created_at && formatTimeAgo(new Date(listing.created_at))}
                     </div>
 
-                    <div className="mt-4 grid grid-cols-2 gap-2">
+                    <div className="mt-4 flex gap-2">
                       <Button
-                        variant="outline"
+                        variant={savedStates[listing.id] ? "default" : "outline"}
                         size="sm"
-                        onClick={() => handleAddToCart(listing.id)}
-                        className="w-full"
+                        onClick={() => handleAddToCart(listing)}
+                        className={`flex-1 ${
+                          savedStates[listing.id] 
+                            ? 'bg-black hover:bg-black/90 text-white' 
+                            : ''
+                        }`}
                       >
-                        <Bookmark className="h-4 w-4 mr-2" />
-                        Save
+                        <Bookmark className={`h-4 w-4 mr-2 ${savedStates[listing.id] ? 'fill-current' : ''}`} />
+                        {savedStates[listing.id] ? 'Saved' : 'Save'}
                       </Button>
                       {listing.try_on_available && (
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => router.push(`/try-on?item=${listing.id}`)}
-                          className="w-full text-purple-600 border-purple-200 hover:bg-purple-50"
+                          className="flex-1 text-purple-600 border-purple-200 hover:bg-purple-50"
                         >
                           <Camera className="h-4 w-4 mr-2" />
                           Try
@@ -525,7 +535,7 @@ export default function ListingsPage() {
                       <Button
                         size="sm"
                         onClick={() => handleMessage(listing.id)}
-                        className={`w-full bg-green-600 hover:bg-green-700 ${listing.try_on_available ? 'col-span-2' : 'col-span-1'}`}
+                        className="flex-1 bg-green-600 hover:bg-green-700"
                       >
                         <MessageCircle className="h-4 w-4 mr-2" />
                         Buy

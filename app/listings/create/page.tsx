@@ -178,7 +178,7 @@ export default function CreateListingPage() {
           location: formData.location,
           negotiable: formData.negotiable,
           try_on_available: formData.tryOnAvailable,
-          image_urls: imageUrls,
+          images: imageUrls, 
           status: 'active',
           views: 0,
           likes: 0,
