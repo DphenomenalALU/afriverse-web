@@ -21,30 +21,23 @@ import SiteFooter from "@/components/site-footer"
 
 const categories = [
   "Dresses",
-  "Tops",
-  "Bottoms",
-  "Outerwear",
-  "Accessories",
+  "Tops & Blouses",
+  "Pants & Jeans",
+  "Skirts",
+  "Jackets & Coats",
   "Shoes",
-  "Traditional",
+  "Bags & Accessories",
+  "Jewelry",
 ]
+
+const sizes = ["XS", "S", "M", "L", "XL", "XXL"]
 
 const conditions = [
-  "New with Tags",
-  "Like New",
-  "Very Good",
-  "Good",
-  "Fair",
-]
-
-const sizes = [
-  "XS",
-  "S",
-  "M",
-  "L",
-  "XL",
-  "XXL",
-  "One Size",
+  { value: "new", label: "New with tags", description: "Brand new, never worn" },
+  { value: "like-new", label: "Like new", description: "Worn once or twice, excellent condition" },
+  { value: "excellent", label: "Excellent", description: "Gently used, no visible wear" },
+  { value: "good", label: "Good", description: "Some signs of wear, still in great shape" },
+  { value: "fair", label: "Fair", description: "Noticeable wear but still wearable" },
 ]
 
 // Add formatTimeAgo function
@@ -85,6 +78,11 @@ export default function ListingsPage() {
     conditions: selectedConditions,
     sizes: selectedSizes,
   })
+
+  // Helper function to get condition label
+  const getConditionLabel = (value: string) => {
+    return conditions.find(c => c.value === value)?.label || value
+  }
 
   const handleAddToCart = async (listingId: string) => {
     try {
@@ -183,17 +181,17 @@ export default function ListingsPage() {
         {/* Search and Filters */}
         <div className="flex flex-col md:flex-row gap-4 mb-8">
           <div className="flex-1">
-            <div className="relative">
+                      <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <Input
+                        <Input
                 type="search"
                 placeholder="Search listings..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </div>
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="pl-10"
+                        />
+                      </div>
+                    </div>
 
           <div className="flex gap-2">
             <Sheet>
@@ -203,13 +201,13 @@ export default function ListingsPage() {
                   Filters
                 </Button>
               </SheetTrigger>
-              <SheetContent className="w-full sm:max-w-md">
+              <SheetContent className="w-full sm:max-w-md overflow-y-auto">
                 <SheetHeader>
                   <SheetTitle>Filter Listings</SheetTitle>
                 </SheetHeader>
-                <div className="py-6 space-y-6">
-                  {/* Price Range */}
-                  <div>
+                <div className="py-6 space-y-6 max-h-[calc(100vh-8rem)] overflow-y-auto">
+                    {/* Price Range */}
+                    <div>
                     <h3 className="font-medium text-gray-900 mb-4">Price Range</h3>
                     <Slider
                       value={priceRange}
@@ -219,41 +217,41 @@ export default function ListingsPage() {
                       step={10}
                       className="mb-2"
                     />
-                    <div className="flex justify-between text-sm text-gray-600">
-                      <span>${priceRange[0]}</span>
-                      <span>${priceRange[1]}</span>
+                      <div className="flex justify-between text-sm text-gray-600">
+                        <span>${priceRange[0]}</span>
+                        <span>${priceRange[1]}</span>
+                      </div>
                     </div>
-                  </div>
 
                   <Separator />
 
-                  {/* Categories */}
-                  <div>
+                    {/* Categories */}
+                    <div>
                     <h3 className="font-medium text-gray-900 mb-4">Categories</h3>
-                    <div className="space-y-2">
+                      <div className="space-y-2">
                       {categories.map((category) => (
                         <div key={category} className="flex items-center">
-                          <Checkbox
+                            <Checkbox
                             id={`category-${category}`}
-                            checked={selectedCategories.includes(category)}
-                            onCheckedChange={(checked) => {
+                              checked={selectedCategories.includes(category)}
+                              onCheckedChange={(checked) => {
                               setSelectedCategories(
                                 checked
                                   ? [...selectedCategories, category]
                                   : selectedCategories.filter((c) => c !== category)
                               )
-                            }}
-                          />
+                              }}
+                            />
                           <label
                             htmlFor={`category-${category}`}
                             className="ml-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                           >
-                            {category}
-                          </label>
-                        </div>
-                      ))}
+                              {category}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
 
                   <Separator />
 
@@ -262,24 +260,27 @@ export default function ListingsPage() {
                     <h3 className="font-medium text-gray-900 mb-4">Condition</h3>
                     <div className="space-y-2">
                       {conditions.map((condition) => (
-                        <div key={condition} className="flex items-center">
+                        <div key={condition.value} className="flex items-center">
                           <Checkbox
-                            id={`condition-${condition}`}
-                            checked={selectedConditions.includes(condition)}
+                            id={`condition-${condition.value}`}
+                            checked={selectedConditions.includes(condition.value)}
                             onCheckedChange={(checked) => {
                               setSelectedConditions(
                                 checked
-                                  ? [...selectedConditions, condition]
-                                  : selectedConditions.filter((c) => c !== condition)
+                                  ? [...selectedConditions, condition.value]
+                                  : selectedConditions.filter((c) => c !== condition.value)
                               )
                             }}
                           />
-                          <label
-                            htmlFor={`condition-${condition}`}
-                            className="ml-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                          >
-                            {condition}
-                          </label>
+                          <div className="ml-2">
+                            <label
+                              htmlFor={`condition-${condition.value}`}
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            >
+                              {condition.label}
+                            </label>
+                            <p className="text-xs text-gray-500 mt-1">{condition.description}</p>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -288,10 +289,10 @@ export default function ListingsPage() {
                   <Separator />
 
                   {/* Sizes */}
-                  <div>
+                    <div>
                     <h3 className="font-medium text-gray-900 mb-4">Size</h3>
                     <div className="space-y-2">
-                      {sizes.map((size) => (
+                        {sizes.map((size) => (
                         <div key={size} className="flex items-center">
                           <Checkbox
                             id={`size-${size}`}
@@ -311,7 +312,7 @@ export default function ListingsPage() {
                             {size}
                           </label>
                         </div>
-                      ))}
+                        ))}
                     </div>
                   </div>
                 </div>
@@ -329,8 +330,8 @@ export default function ListingsPage() {
                 <Grid3X3 className="h-4 w-4" />
               )}
             </Button>
-          </div>
-        </div>
+                  </div>
+                </div>
 
         {/* Active Filters */}
         {(selectedCategories.length > 0 ||
@@ -356,7 +357,7 @@ export default function ListingsPage() {
                 className="cursor-pointer"
                 onClick={() => setSelectedConditions(selectedConditions.filter((c) => c !== condition))}
               >
-                {condition} ×
+                {getConditionLabel(condition)} ×
               </Badge>
             ))}
             {selectedSizes.map((size) => (
@@ -378,10 +379,10 @@ export default function ListingsPage() {
                 ${priceRange[0]} - ${priceRange[1]} ×
               </Badge>
             )}
-            <Button
+                      <Button
               variant="ghost"
-              size="sm"
-              onClick={() => {
+                        size="sm"
+                        onClick={() => {
                 setSelectedCategories([])
                 setSelectedConditions([])
                 setSelectedSizes([])
@@ -389,7 +390,7 @@ export default function ListingsPage() {
               }}
             >
               Clear all
-            </Button>
+                      </Button>
           </div>
         )}
 
@@ -412,10 +413,10 @@ export default function ListingsPage() {
                       <div className="h-4 bg-gray-200 rounded w-3/4" />
                       <div className="h-4 bg-gray-200 rounded w-1/2" />
                       <div className="h-4 bg-gray-200 rounded w-1/4" />
-                    </div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </CardContent>
+            </Card>
             ))
           ) : listings.length === 0 ? (
             <div className="col-span-full text-center py-12">
@@ -431,8 +432,8 @@ export default function ListingsPage() {
                 }}
               >
                 Clear Filters
-              </Button>
-            </div>
+                </Button>
+              </div>
           ) : (
             listings.map((listing) => (
               <Card key={listing.id} className={viewMode === "list" ? "overflow-hidden" : ""}>
@@ -448,13 +449,13 @@ export default function ListingsPage() {
                       <Badge variant="secondary" className="bg-white/90 text-gray-900">
                         {listing.condition}
                       </Badge>
-                    </div>
+                </div>
                     {listing.try_on_available && (
                       <div className="absolute top-2 right-2 z-10">
                         <Badge className="bg-purple-600 text-white">
-                          <Camera className="h-3 w-3 mr-1" />
-                          Try-On
-                        </Badge>
+                        <Camera className="h-3 w-3 mr-1" />
+                        Try-On
+                      </Badge>
                       </div>
                     )}
                     <ImageWithFallback
@@ -470,7 +471,7 @@ export default function ListingsPage() {
                     <h3 className="font-medium text-gray-900 text-lg mb-1">{listing.title}</h3>
                     <p className="text-gray-600">
                       {listing.brand} • Size {listing.size}
-                    </p>
+                      </p>
 
                     <div className="flex items-center gap-2 mt-2">
                       <span className="text-xl font-bold text-green-600">${listing.price}</span>
@@ -479,7 +480,7 @@ export default function ListingsPage() {
                           <span className="text-gray-500 line-through">${listing.original_price}</span>
                           <Badge variant="secondary">
                             {Math.round((1 - listing.price / listing.original_price) * 100)}% off
-                          </Badge>
+                      </Badge>
                         </>
                       )}
                     </div>
@@ -530,9 +531,9 @@ export default function ListingsPage() {
                         Buy
                       </Button>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                    </div>
+                  </CardContent>
+                </Card>
             ))
           )}
         </div>
