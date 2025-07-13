@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Search, Filter, Grid3X3, List, Bookmark, MessageCircle, Camera, MapPin, Clock, Star, Loader2 } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { useListings } from "@/hooks/use-listings"
 import { useToast } from "@/hooks/use-toast"
@@ -61,11 +61,16 @@ function formatTimeAgo(date: Date): string {
   return 'just now'
 }
 
-export default function ListingsPage() {
+interface ListingsPageProps {
+  isSearchPage?: boolean
+}
+
+export default function ListingsPage({ isSearchPage }: ListingsPageProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
   const supabase = createClient()
-  const [searchQuery, setSearchQuery] = useState("")
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') || "")
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000])
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [selectedConditions, setSelectedConditions] = useState<string[]>([])
@@ -94,6 +99,35 @@ export default function ListingsPage() {
       })
     }
   }, [listings])
+
+  // Handle URL search query
+  useEffect(() => {
+    const query = searchParams.get('q')
+    if (query) {
+      setSearchQuery(query)
+    }
+  }, [searchParams])
+
+  // Focus search input on search page
+  useEffect(() => {
+    if (isSearchPage) {
+      const searchInput = document.querySelector('input[type="search"]') as HTMLInputElement
+      if (searchInput) {
+        searchInput.focus()
+      }
+    }
+  }, [isSearchPage])
+
+  // Update URL when search query changes
+  useEffect(() => {
+    if (searchQuery) {
+      const newUrl = `${isSearchPage ? '/search' : '/listings'}?q=${encodeURIComponent(searchQuery)}`
+      router.push(newUrl, { scroll: false })
+    } else if (searchParams.has('q')) {
+      const newUrl = isSearchPage ? '/search' : '/listings'
+      router.push(newUrl, { scroll: false })
+    }
+  }, [searchQuery, isSearchPage])
 
   // Helper function to get condition label
   const getConditionLabel = (value: string) => {
@@ -180,20 +214,25 @@ export default function ListingsPage() {
       <SiteHeader />
 
       <div className="container py-8">
+        {/* Page Title */}
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">
+          {isSearchPage ? "Search Results" : "Browse Listings"}
+        </h1>
+
         {/* Search and Filters */}
         <div className="flex flex-col md:flex-row gap-4 mb-8">
           <div className="flex-1">
-                      <div className="relative">
+            <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                        <Input
+              <Input
                 type="search"
-                placeholder="Search listings..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="pl-10"
-                        />
-                      </div>
-                    </div>
+                placeholder={isSearchPage ? "Search for items, brands, or styles..." : "Search listings..."}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
 
           <div className="flex gap-2">
             <Sheet>
