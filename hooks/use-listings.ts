@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import type { Database } from '@/lib/supabase/types'
 
 export type Listing = Database['public']['Tables']['listings']['Row']
@@ -27,20 +27,36 @@ export function useListings(options: UseListingsOptions = {}): UseListingsReturn
   const [listings, setListings] = useState<Listing[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
-  const supabase = createClientComponentClient<Database>()
+  const supabase = createClient()
 
-  useEffect(() => {
-    fetchListings()
-  }, [options])
+  // Memoize options to prevent unnecessary re-renders
+  const memoizedOptions = useMemo(() => ({
+    priceRange: options.priceRange,
+    categories: options.categories?.join(','),
+    conditions: options.conditions?.join(','),
+    sizes: options.sizes?.join(','),
+    searchQuery: options.searchQuery
+  }), [
+    options.priceRange?.[0],
+    options.priceRange?.[1],
+    options.categories?.join(','),
+    options.conditions?.join(','),
+    options.sizes?.join(','),
+    options.searchQuery
+  ])
 
-  const fetchListings = async () => {
+  const fetchListings = useCallback(async () => {
     try {
-      setIsLoading(true)
       setError(null)
 
       let query = supabase
         .from('listings')
-        .select('*')
+        .select(`
+          *,
+          profiles:user_id (
+            name
+          )
+        `)
 
       // Apply filters
       if (options.priceRange) {
@@ -75,7 +91,25 @@ export function useListings(options: UseListingsOptions = {}): UseListingsReturn
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [memoizedOptions])
+
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout
+
+    const debouncedFetch = () => {
+      setIsLoading(true)
+      clearTimeout(timeoutId)
+      timeoutId = setTimeout(() => {
+        fetchListings()
+      }, 300) // Debounce for 300ms
+    }
+
+    debouncedFetch()
+
+    return () => {
+      clearTimeout(timeoutId)
+    }
+  }, [fetchListings])
 
   const createListing = async (listing: Omit<Listing, 'id' | 'created_at' | 'updated_at' | 'seller_id'>) => {
     const { data, error } = await supabase

@@ -4,6 +4,8 @@ import type React from "react"
 
 import { useState } from "react"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
 import { Upload, X, DollarSign, Package, Camera, Tag, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Checkbox } from "@/components/ui/checkbox"
+import { useToast } from "@/hooks/use-toast"
 import SiteHeader from "@/components/site-header"
 import SiteFooter from "@/components/site-footer"
 
@@ -40,6 +43,16 @@ const conditions = [
 ]
 
 export default function CreateListingPage() {
+  const router = useRouter()
+  const { toast } = useToast()
+  const supabase = createClient()
+  
+  // Add initialization log
+  console.log('CreateListingPage: Initializing with Supabase client', { 
+    client: !!supabase,
+    auth: !!supabase.auth 
+  })
+
   const [images, setImages] = useState<string[]>([])
   const [formData, setFormData] = useState({
     title: "",
@@ -74,10 +87,127 @@ export default function CreateListingPage() {
     setImages((prev) => prev.filter((_, i) => i !== index))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("Form submitted:", { ...formData, images })
-    // Handle form submission
+    console.log('CreateListingPage: Starting form submission')
+    
+    try {
+      console.log('CreateListingPage: Checking authentication')
+      // Get current session first to compare
+      const { data: sessionData } = await supabase.auth.getSession()
+      console.log('CreateListingPage: Session check result:', {
+        hasSession: !!sessionData.session,
+        sessionUser: sessionData.session?.user?.id
+      })
+      
+      // Get the current user using getUser()
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      console.log('CreateListingPage: User check result:', {
+        hasUser: !!user,
+        userId: user?.id,
+        error: userError ? {
+          message: userError.message,
+          name: userError.name
+        } : null
+      })
+      
+      if (userError || !user) {
+        console.log('CreateListingPage: Authentication failed, redirecting to login')
+        toast({
+          title: "Authentication required",
+          description: "Please sign in to create a listing",
+          variant: "destructive",
+        })
+        router.push('/auth/login')
+        return
+      }
+
+      // Upload images to Supabase storage
+      const imageUrls = []
+      for (const imageDataUrl of images) {
+        try {
+          const { data: imageData, error: imageError } = await supabase.storage
+            .from('listing-images')
+            .upload(`${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}`, 
+              await (await fetch(imageDataUrl)).blob(),
+              { contentType: 'image/jpeg' }
+            )
+
+          if (imageError) {
+            if (imageError.message.includes('Bucket not found')) {
+              toast({
+                title: "Storage not configured",
+                description: "The storage system needs to be set up. Please contact support.",
+                variant: "destructive",
+              })
+              return
+            }
+            throw imageError
+          }
+          
+          // Get the public URL for the uploaded image
+          const { data: { publicUrl } } = supabase.storage
+            .from('listing-images')
+            .getPublicUrl(imageData.path)
+            
+          imageUrls.push(publicUrl)
+        } catch (uploadError) {
+          console.error('CreateListingPage: Image upload error:', uploadError)
+          toast({
+            title: "Image upload failed",
+            description: "Failed to upload one or more images. Please try again.",
+            variant: "destructive",
+          })
+          return
+        }
+      }
+
+      // Create the listing in the database
+      const { error: listingError } = await supabase
+        .from('listings')
+        .insert({
+          user_id: user.id,
+          title: formData.title,
+          description: formData.description,
+          category: formData.category,
+          brand: formData.brand,
+          size: formData.size,
+          condition: formData.condition,
+          price: parseFloat(formData.sellingPrice),
+          original_price: formData.originalPrice ? parseFloat(formData.originalPrice) : null,
+          location: formData.location,
+          negotiable: formData.negotiable,
+          try_on_available: formData.tryOnAvailable,
+          image_urls: imageUrls,
+          status: 'active',
+          views: 0,
+          likes: 0,
+        })
+
+      if (listingError) {
+        console.error('CreateListingPage: Database error:', listingError)
+        toast({
+          title: "Error saving listing",
+          description: "Failed to save the listing to the database. Please try again.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      toast({
+        title: "Listing created successfully",
+        description: "Your item has been listed for sale.",
+      })
+
+      router.push('/listings')
+    } catch (error) {
+      console.error('CreateListingPage: Error in form submission:', error)
+      toast({
+        title: "Error creating listing",
+        description: "Please try again later.",
+        variant: "destructive",
+      })
+    }
   }
 
   return (
