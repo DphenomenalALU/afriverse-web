@@ -60,7 +60,7 @@ export interface Database {
           original_price: number | null
           size: string | null
           images: string[] | null
-          status: string
+          status: "active" | "pending" | "sold" | "archived"
           created_at: string
           updated_at: string
           brand: string | null
@@ -81,7 +81,7 @@ export interface Database {
           original_price?: number | null
           size?: string | null
           images?: string[] | null
-          status?: string
+          status?: "active" | "pending" | "sold" | "archived"
           created_at?: string
           updated_at?: string
           brand?: string | null
@@ -102,7 +102,7 @@ export interface Database {
           original_price?: number | null
           size?: string | null
           images?: string[] | null
-          status?: string
+          status?: "active" | "pending" | "sold" | "archived"
           created_at?: string
           updated_at?: string
           brand?: string | null
@@ -120,40 +120,46 @@ export interface Database {
           id: string
           user_id: string
           listing_id: string
-          status: string
+          status: "pending" | "accepted" | "payment_pending" | "payment_confirmed" | "completed"
           created_at: string
           updated_at: string
           shipping_address: Json | null
           tracking_number: string | null
-          payment_status: string
+          payment_status: "pending" | "paid" | "confirmed"
           payment_method: string | null
           total_amount: number
+          rating: number | null
+          rating_submitted_at: string | null
         }
         Insert: {
           id?: string
           user_id: string
           listing_id: string
-          status?: string
+          status?: "pending" | "accepted" | "payment_pending" | "payment_confirmed" | "completed"
           created_at?: string
           updated_at?: string
           shipping_address?: Json | null
           tracking_number?: string | null
-          payment_status?: string
+          payment_status?: "pending" | "paid" | "confirmed"
           payment_method?: string | null
           total_amount: number
+          rating?: number | null
+          rating_submitted_at?: string | null
         }
         Update: {
           id?: string
           user_id?: string
           listing_id?: string
-          status?: string
+          status?: "pending" | "accepted" | "payment_pending" | "payment_confirmed" | "completed"
           created_at?: string
           updated_at?: string
           shipping_address?: Json | null
           tracking_number?: string | null
-          payment_status?: string
+          payment_status?: "pending" | "paid" | "confirmed"
           payment_method?: string | null
           total_amount?: number
+          rating?: number | null
+          rating_submitted_at?: string | null
         }
       }
       messages: {
@@ -164,6 +170,8 @@ export interface Database {
           receiver_id: string
           content: string
           sent_at: string
+          type: "text" | "system" | "price" | "rating"
+          metadata: Json | null
         }
         Insert: {
           id?: string
@@ -172,6 +180,8 @@ export interface Database {
           receiver_id: string
           content: string
           sent_at?: string
+          type?: "text" | "system" | "price" | "rating"
+          metadata?: Json | null
         }
         Update: {
           id?: string
@@ -180,6 +190,8 @@ export interface Database {
           receiver_id?: string
           content?: string
           sent_at?: string
+          type?: "text" | "system" | "price" | "rating"
+          metadata?: Json | null
         }
       }
     }

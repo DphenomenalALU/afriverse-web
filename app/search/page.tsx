@@ -4,9 +4,14 @@ import { useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import ListingsPage from "../listings/page"
 
-export default function SearchPage() {
+interface PageProps {
+  searchParams?: { [key: string]: string | string[] | undefined }
+  params?: { [key: string]: string | string[] | boolean | undefined }
+}
+
+export default function SearchPage({ searchParams, params }: PageProps) {
   const router = useRouter()
-  const searchParams = useSearchParams()
+  const searchParamsObj = useSearchParams()
 
   useEffect(() => {
     // Focus the search input when the page loads
@@ -16,11 +21,11 @@ export default function SearchPage() {
     }
 
     // If there's a search query in the URL, let the listings page handle it
-    const query = searchParams.get('q')
+    const query = searchParamsObj.get('q')
     if (query) {
       router.push(`/listings?q=${encodeURIComponent(query)}`)
     }
   }, [])
 
-  return <ListingsPage isSearchPage />
+  return <ListingsPage searchParams={searchParams} params={{ ...params, isSearchPage: true }} />
 }

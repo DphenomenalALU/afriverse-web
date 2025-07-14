@@ -61,16 +61,17 @@ function formatTimeAgo(date: Date): string {
   return 'just now'
 }
 
-interface ListingsPageProps {
-  isSearchPage?: boolean
+interface PageProps {
+  searchParams?: { [key: string]: string | string[] | undefined }
+  params?: { [key: string]: string | string[] | boolean | undefined }
 }
 
-export default function ListingsPage({ isSearchPage }: ListingsPageProps) {
+export default function ListingsPage({ searchParams, params }: PageProps) {
   const router = useRouter()
-  const searchParams = useSearchParams()
+  const searchParamsObj = useSearchParams()
   const { toast } = useToast()
   const supabase = createClient()
-  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') || "")
+  const [searchQuery, setSearchQuery] = useState(() => searchParamsObj.get('q') || "")
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000])
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [selectedConditions, setSelectedConditions] = useState<string[]>([])
@@ -100,32 +101,32 @@ export default function ListingsPage({ isSearchPage }: ListingsPageProps) {
 
   // Handle URL search query
   useEffect(() => {
-    const query = searchParams.get('q')
+    const query = searchParamsObj.get('q')
     if (query) {
       setSearchQuery(query)
     }
-  }, [searchParams])
+  }, [searchParamsObj])
 
   // Focus search input on search page
   useEffect(() => {
-    if (isSearchPage) {
+    if (params?.isSearchPage) {
       const searchInput = document.querySelector('input[type="search"]') as HTMLInputElement
       if (searchInput) {
         searchInput.focus()
       }
     }
-  }, [isSearchPage])
+  }, [params?.isSearchPage])
 
   // Update URL when search query changes
   useEffect(() => {
     if (searchQuery) {
-      const newUrl = `${isSearchPage ? '/search' : '/listings'}?q=${encodeURIComponent(searchQuery)}`
+      const newUrl = `${params?.isSearchPage ? '/search' : '/listings'}?q=${encodeURIComponent(searchQuery)}`
       router.push(newUrl, { scroll: false })
-    } else if (searchParams.has('q')) {
-      const newUrl = isSearchPage ? '/search' : '/listings'
+    } else if (searchParamsObj.has('q')) {
+      const newUrl = params?.isSearchPage ? '/search' : '/listings'
       router.push(newUrl, { scroll: false })
     }
-  }, [searchQuery, isSearchPage])
+  }, [searchQuery, params?.isSearchPage])
 
   // Helper function to get condition label
   const getConditionLabel = (value: string) => {
@@ -175,18 +176,102 @@ export default function ListingsPage({ isSearchPage }: ListingsPageProps) {
   }
 
   const handleMessage = async (listingId: string) => {
-    const { data: { session } } = await supabase.auth.getSession()
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
 
-    if (!session) {
+      if (!session) {
+        toast({
+          title: "Sign in required",
+          description: "Please sign in to message sellers.",
+        })
+        router.push('/auth/login')
+        return
+      }
+
+      // Get listing details
+      const { data: listing, error: listingError } = await supabase
+        .from('listings')
+        .select(`
+          *,
+          profiles!listings_user_id_fkey (
+            id,
+            name,
+            avatar_url,
+            rating
+          )
+        `)
+        .eq('id', listingId)
+        .single()
+
+      if (listingError) throw listingError
+
+      // Check if user is trying to buy their own listing
+      if (listing.user_id === session.user.id) {
+        toast({
+          title: "Cannot buy your own listing",
+          description: "You cannot purchase items you've listed.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Check if a purchase already exists for this listing
+      const { data: existingPurchase, error: purchaseCheckError } = await supabase
+        .from('purchases')
+        .select('*')
+        .eq('listing_id', listingId)
+        .eq('user_id', session.user.id)
+        .single()
+
+      if (purchaseCheckError && purchaseCheckError.code !== 'PGRST116') {
+        // PGRST116 means no rows found, which is what we want
+        throw purchaseCheckError
+      }
+
+      if (existingPurchase) {
+        // If purchase exists, just navigate to the messages page
+        router.push(`/messages?listing=${listingId}`)
+        return
+      }
+
+      // Create new purchase
+      const { data: purchase, error: purchaseError } = await supabase
+        .from('purchases')
+        .insert({
+          user_id: session.user.id,
+          listing_id: listingId,
+          status: 'pending',
+          payment_status: 'pending',
+          total_amount: listing.price
+        })
+        .select()
+        .single()
+
+      if (purchaseError) throw purchaseError
+
+      // Create initial system message
+      const { error: messageError } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: purchase.id,
+          sender_id: 'system',
+          receiver_id: 'system',
+          content: `Listing price: $${listing.price}`,
+          sent_at: new Date().toISOString()
+        })
+
+      if (messageError) throw messageError
+
+      // Navigate to messages page
+      router.push(`/messages?listing=${listingId}`)
+    } catch (error) {
+      console.error('Error creating conversation:', error)
       toast({
-        title: "Sign in required",
-        description: "Please sign in to message sellers.",
+        title: "Error",
+        description: "Failed to start conversation. Please try again.",
+        variant: "destructive",
       })
-      router.push('/auth/login')
-      return
     }
-
-    router.push(`/messages?listing=${listingId}`)
   }
 
   if (error) {
@@ -214,7 +299,7 @@ export default function ListingsPage({ isSearchPage }: ListingsPageProps) {
       <div className="container py-8">
         {/* Page Title */}
         <h1 className="text-2xl font-bold text-gray-900 mb-6">
-          {isSearchPage ? "Search Results" : "Browse Listings"}
+          {params?.isSearchPage ? "Search Results" : "Browse Listings"}
         </h1>
 
         {/* Search and Filters */}
@@ -224,7 +309,7 @@ export default function ListingsPage({ isSearchPage }: ListingsPageProps) {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <Input
                 type="search"
-                placeholder={isSearchPage ? "Search for items, brands, or styles..." : "Search listings..."}
+                placeholder={params?.isSearchPage ? "Search for items, brands, or styles..." : "Search listings..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
