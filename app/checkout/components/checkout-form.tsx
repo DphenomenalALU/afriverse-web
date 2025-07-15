@@ -155,7 +155,6 @@ export function CheckoutForm({
       }
 
       setShowSuccess(true)
-      router.refresh()
     } catch (error) {
       console.error("Checkout error:", error)
       toast.error(

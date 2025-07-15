@@ -14,39 +14,34 @@ export function CheckoutSuccessDialog({
 }: CheckoutSuccessDialogProps) {
   const router = useRouter()
 
+  const handleOpenChange = (isOpen: boolean) => {
+    onOpenChange(isOpen)
+    if (!isOpen) {
+      router.push("/listings")
+    }
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <div className="flex flex-col items-center justify-center space-y-4 py-6">
           <div className="rounded-full bg-green-100 p-3">
             <CheckCircle className="h-6 w-6 text-green-600" />
           </div>
           <div className="text-center">
-            <h3 className="text-lg font-semibold">Order Placed Successfully!</h3>
+            <h3 className="text-lg font-semibold">Order Successfully Placed!</h3>
             <p className="text-sm text-muted-foreground">
               Thank you for your purchase. We&apos;ll send you an email with the order details
-              and tracking information once your item ships.
+              and tracking information for your order.
             </p>
           </div>
-          <div className="flex gap-3">
-            <Button
-              variant="outline"
-              onClick={() => {
-                onOpenChange(false)
-                router.push("/listings")
-              }}
-            >
-              Continue Shopping
-            </Button>
-            <Button
-              onClick={() => {
-                onOpenChange(false)
-                router.push("/profile")
-              }}
-            >
-              View Orders
-            </Button>
-          </div>
+          <Button
+            onClick={() => {
+              handleOpenChange(false)
+            }}
+          >
+            Continue Shopping
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
