@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, Filter, Grid3X3, List, Bookmark, MessageCircle, Camera, MapPin, Clock, Star, Loader2 } from "lucide-react"
+import { Search, Filter, Grid3X3, List, Bookmark, MessageCircle, Camera, MapPin, Clock, Star, Loader2, ShoppingBag } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { useListings } from "@/hooks/use-listings"
@@ -182,7 +182,7 @@ export default function ListingsPage({ searchParams, params }: PageProps) {
       if (!session) {
         toast({
           title: "Sign in required",
-          description: "Please sign in to message sellers.",
+          description: "Please sign in to make purchases.",
         })
         router.push('/auth/login')
         return
@@ -191,15 +191,7 @@ export default function ListingsPage({ searchParams, params }: PageProps) {
       // Get listing details
       const { data: listing, error: listingError } = await supabase
         .from('listings')
-        .select(`
-          *,
-          profiles!listings_user_id_fkey (
-            id,
-            name,
-            avatar_url,
-            rating
-          )
-        `)
+        .select('user_id')
         .eq('id', listingId)
         .single()
 
@@ -215,60 +207,13 @@ export default function ListingsPage({ searchParams, params }: PageProps) {
         return
       }
 
-      // Check if a purchase already exists for this listing
-      const { data: existingPurchase, error: purchaseCheckError } = await supabase
-        .from('purchases')
-        .select('*')
-        .eq('listing_id', listingId)
-        .eq('user_id', session.user.id)
-        .single()
-
-      if (purchaseCheckError && purchaseCheckError.code !== 'PGRST116') {
-        // PGRST116 means no rows found, which is what we want
-        throw purchaseCheckError
-      }
-
-      if (existingPurchase) {
-        // If purchase exists, just navigate to the messages page
-        router.push(`/messages?listing=${listingId}`)
-        return
-      }
-
-      // Create new purchase
-      const { data: purchase, error: purchaseError } = await supabase
-        .from('purchases')
-        .insert({
-          user_id: session.user.id,
-          listing_id: listingId,
-          status: 'pending',
-          payment_status: 'pending',
-          total_amount: listing.price
-        })
-        .select()
-        .single()
-
-      if (purchaseError) throw purchaseError
-
-      // Create initial system message
-      const { error: messageError } = await supabase
-        .from('messages')
-        .insert({
-          conversation_id: purchase.id,
-          sender_id: 'system',
-          receiver_id: 'system',
-          content: `Listing price: $${listing.price}`,
-          sent_at: new Date().toISOString()
-        })
-
-      if (messageError) throw messageError
-
-      // Navigate to messages page
-      router.push(`/messages?listing=${listingId}`)
+      // Redirect to checkout
+      router.push(`/checkout?listing_id=${listingId}`)
     } catch (error) {
-      console.error('Error creating conversation:', error)
+      console.error('Error:', error)
       toast({
         title: "Error",
-        description: "Failed to start conversation. Please try again.",
+        description: "Something went wrong. Please try again.",
         variant: "destructive",
       })
     }
@@ -655,7 +600,7 @@ export default function ListingsPage({ searchParams, params }: PageProps) {
                         onClick={() => handleMessage(listing.id)}
                         className="flex-1 bg-green-600 hover:bg-green-700"
                       >
-                        <MessageCircle className="h-4 w-4 mr-2" />
+                        <ShoppingBag className="h-4 w-4 mr-2" />
                         Buy
                       </Button>
                     </div>

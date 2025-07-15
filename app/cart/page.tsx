@@ -40,7 +40,7 @@ export default function CartPage() {
   }
 
   const handleBuyNow = (itemId: string) => {
-    router.push(`/messages?item=${itemId}&action=buy`)
+    router.push(`/checkout?listing_id=${itemId}`)
   }
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.price, 0)
@@ -172,7 +172,7 @@ export default function CartPage() {
                                 onClick={() => handleBuyNow(item.id)}
                                 className="bg-green-600 hover:bg-green-700 w-full sm:w-auto justify-center"
                               >
-                                <MessageCircle className="h-4 w-4 mr-2" />
+                                <ShoppingBag className="h-4 w-4 mr-2" />
                                 Buy Now
                               </Button>
                             </div>

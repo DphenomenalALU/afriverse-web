@@ -35,6 +35,7 @@ type MessageType = {
 type ConversationType = {
   id: string
   sellerId: string
+  buyerId: string
   sellerName: string
   sellerAvatar: string | null
   sellerRating: number
@@ -112,50 +113,93 @@ export default function MessagesPage() {
 
         const userId = session.user.id
 
-        // Get all purchases where the user is either buyer or seller
-        const { data: purchases, error: purchasesError } = await supabase
-          .from('purchases')
-          .select(`
-            *,
-            listings (
-              id,
-              title,
-              price,
-              images,
-              user_id
-            ),
-            profiles!profiles_user_id_fkey (
+        const query = `
+          *,
+          listings:listings!inner (
+            id,
+            title,
+            price,
+            images,
+            user_id,
+            profiles (
               id,
               name,
               avatar_url,
               rating
             )
-          `)
-          .or(`user_id.eq.${userId},listings.user_id.eq.${userId}`)
-          .order('created_at', { ascending: false })
+          )
+        `
 
-        if (purchasesError) throw purchasesError
+        // Get all purchases where the user is the buyer
+        const { data: buyerPurchases, error: buyerError } = await supabase
+          .from('purchases')
+          .select(query)
+          .eq('user_id', userId)
+
+        if (buyerError) {
+          console.error('Error fetching buyer purchases:', buyerError)
+          throw buyerError
+        }
+
+        // Get all purchases where the user is the seller
+        const { data: sellerPurchases, error: sellerError } = await supabase
+          .from('purchases')
+          .select(query)
+          .eq('listings.user_id', userId)
+
+        if (sellerError) {
+          console.error('Error fetching seller purchases:', sellerError)
+          throw sellerError
+        }
+
+        // Merge and deduplicate
+        const allPurchases = [...(buyerPurchases || []), ...(sellerPurchases || [])];
+        const uniquePurchases = Array.from(new Map(allPurchases.map(p => [p.id, p])).values());
+
+        // Sort by creation date
+        uniquePurchases.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+        const purchases = uniquePurchases;
+
+
+        if (!purchases || purchases.length === 0) {
+          setConversations([])
+          setIsLoading(false)
+          return
+        }
 
         // Get the last message for each purchase
         const conversationsData = await Promise.all(purchases.map(async (purchase) => {
-          const { data: lastMessage } = await supabase
+          const { data: messages, error: messagesError } = await supabase
             .from('messages')
             .select('*')
             .eq('conversation_id', purchase.id)
             .order('sent_at', { ascending: false })
             .limit(1)
-            .single()
 
+          if (messagesError) {
+            console.error('Error fetching messages:', messagesError)
+            return null
+          }
+
+          const lastMessage = messages && messages.length > 0 ? messages[0] : null
           const isBuyer = userId === purchase.user_id
-          const seller = purchase.profiles
           const listing = purchase.listings
+          const sellerProfile = listing?.profiles
+
+
+          if (!listing || !sellerProfile) {
+            console.error('Missing seller or listing data for purchase:', purchase.id)
+            return null
+          }
 
           return {
             id: purchase.id,
             sellerId: listing.user_id,
-            sellerName: seller.name || 'Anonymous',
-            sellerAvatar: seller.avatar_url,
-            sellerRating: seller.rating,
+            buyerId: purchase.user_id,
+            sellerName: sellerProfile.name || 'Anonymous',
+            sellerAvatar: sellerProfile.avatar_url,
+            sellerRating: sellerProfile.rating || 0,
             listingId: listing.id,
             listingTitle: listing.title,
             listingImage: listing.images?.[0] || null,
@@ -167,17 +211,18 @@ export default function MessagesPage() {
           }
         }))
 
-        setConversations(conversationsData)
+        // Filter out null values and set conversations
+        setConversations(conversationsData.filter(Boolean) as ConversationType[])
         setIsLoading(false)
 
         // If URL has listing parameter, open that conversation
-        const urlParams = new URLSearchParams(window.location.search)
+    const urlParams = new URLSearchParams(window.location.search)
         const listingId = urlParams.get('listing')
         if (listingId) {
-          const conversation = conversationsData.find(c => c.listingId === listingId)
-          if (conversation) {
-            setSelectedConversation(conversation)
-            setShowConversationList(false)
+          const conversation = conversationsData.filter(Boolean).find(c => c?.listingId === listingId)
+      if (conversation) {
+        setSelectedConversation(conversation)
+        setShowConversationList(false)
             loadMessages(conversation.id)
           }
         }
@@ -212,24 +257,42 @@ export default function MessagesPage() {
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
+      if (!session) {
+        router.push('/auth/login')
+        return
+      }
 
-      const { data: message, error } = await supabase
+      // Determine if the current user is the buyer or seller
+      const isBuyer = session.user.id !== selectedConversation.sellerId
+      
+      const messageData = {
+        conversation_id: selectedConversation.id,
+        content: newMessage.trim(),
+        sender_id: session.user.id,
+        receiver_id: isBuyer ? selectedConversation.sellerId : selectedConversation.buyerId,
+        sent_at: new Date().toISOString(),
+        type: 'text'
+      }
+
+      const { error } = await supabase
         .from('messages')
-        .insert({
-          conversation_id: selectedConversation.id,
-          sender_id: session.user.id,
-          receiver_id: selectedConversation.sellerId,
-          content: newMessage,
-          sent_at: new Date().toISOString()
-        })
-        .select()
-        .single()
+        .insert(messageData)
 
       if (error) throw error
 
-      setMessages([...messages, message])
-      setNewMessage("")
+      // Add the new message to the UI immediately
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(), // Temporary ID until refresh
+        senderId: session.user.id,
+        content: newMessage.trim(),
+        sent_at: new Date().toISOString()
+      }])
+
+      // Clear input
+    setNewMessage("")
+
+      // Refresh messages to get the actual message ID
+      loadMessages(selectedConversation.id)
     } catch (error) {
       console.error('Error sending message:', error)
     }
@@ -240,6 +303,12 @@ export default function MessagesPage() {
     if (!selectedConversation) return
 
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        router.push('/auth/login')
+        return
+      }
+
       const { error: updateError } = await supabase
         .from('purchases')
         .update({ status: 'accepted' })
@@ -247,22 +316,16 @@ export default function MessagesPage() {
 
       if (updateError) throw updateError
 
-      // Add system message
-      const { data: message, error: messageError } = await supabase
-        .from('messages')
-        .insert({
-          conversation_id: selectedConversation.id,
-          sender_id: 'system',
-          receiver_id: 'system',
-          content: `Offer accepted at $${selectedConversation.listingPrice}. Buyer can now proceed to payment.`,
-          sent_at: new Date().toISOString()
-        })
-        .select()
-        .single()
+      // Add system message to UI only
+      const systemMessage = {
+        id: Date.now().toString(),
+        senderId: session.user.id,
+        content: `Offer accepted at $${selectedConversation.listingPrice}. Buyer can now proceed to payment.`,
+        sent_at: new Date().toISOString(),
+        metadata: { isSystem: true }
+      }
 
-      if (messageError) throw messageError
-
-      setMessages([...messages, message])
+      setMessages(prev => [...prev, systemMessage])
       setSelectedConversation({
         ...selectedConversation,
         status: 'accepted'
@@ -278,7 +341,10 @@ export default function MessagesPage() {
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
+      if (!session) {
+        router.push('/auth/login')
+        return
+      }
 
       // Update purchase status
       const { error: updateError } = await supabase
@@ -292,25 +358,34 @@ export default function MessagesPage() {
       if (updateError) throw updateError
 
       // Add buyer message
-      const { data: message, error: messageError } = await supabase
+      const messageData = {
+        conversation_id: selectedConversation.id,
+        sender_id: session.user.id,
+        content: "I've completed the payment.",
+        sent_at: new Date().toISOString()
+      }
+
+      const { error: messageError } = await supabase
         .from('messages')
-        .insert({
-          conversation_id: selectedConversation.id,
-          sender_id: session.user.id,
-          receiver_id: selectedConversation.sellerId,
-          content: "I've completed the payment.",
-          sent_at: new Date().toISOString()
-        })
-        .select()
-        .single()
+        .insert(messageData)
 
       if (messageError) throw messageError
 
-      setMessages([...messages, message])
+      // Add message to UI
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        senderId: session.user.id,
+        content: messageData.content,
+        sent_at: messageData.sent_at
+      }])
+
       setSelectedConversation({
         ...selectedConversation,
         status: 'payment_pending'
       })
+
+      // Refresh messages to get the actual message ID
+      loadMessages(selectedConversation.id)
     } catch (error) {
       console.error('Error confirming payment:', error)
     }
@@ -322,7 +397,10 @@ export default function MessagesPage() {
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
+      if (!session) {
+        router.push('/auth/login')
+        return
+      }
 
       // Update purchase status
       const { error: updateError } = await supabase
@@ -336,25 +414,34 @@ export default function MessagesPage() {
       if (updateError) throw updateError
 
       // Add seller message
-      const { data: message, error: messageError } = await supabase
+      const messageData = {
+        conversation_id: selectedConversation.id,
+        sender_id: session.user.id,
+        content: "Payment received! Thank you for your purchase.",
+        sent_at: new Date().toISOString()
+      }
+
+      const { error: messageError } = await supabase
         .from('messages')
-        .insert({
-          conversation_id: selectedConversation.id,
-          sender_id: selectedConversation.sellerId,
-          receiver_id: session.user.id,
-          content: "Payment received! Thank you for your purchase.",
-          sent_at: new Date().toISOString()
-        })
-        .select()
-        .single()
+        .insert(messageData)
 
       if (messageError) throw messageError
 
-      setMessages([...messages, message])
+      // Add message to UI
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        senderId: session.user.id,
+        content: messageData.content,
+        sent_at: messageData.sent_at
+      }])
+
       setSelectedConversation({
         ...selectedConversation,
         status: 'payment_confirmed'
       })
+
+      // Refresh messages to get the actual message ID
+      loadMessages(selectedConversation.id)
       setShowRatingModal(true)
     } catch (error) {
       console.error('Error confirming payment:', error)
@@ -397,7 +484,7 @@ export default function MessagesPage() {
 
       if (messageError) throw messageError
 
-      setMessages([...messages, message])
+    setMessages([...messages, message])
       setSelectedConversation({
         ...selectedConversation,
         status: 'completed'
@@ -674,9 +761,9 @@ export default function MessagesPage() {
                             <h5 className="text-sm font-medium text-gray-900 truncate">{conversation.listingTitle}</h5>
                             <p className="text-sm font-semibold text-primary">${conversation.listingPrice}</p>
                           </div>
-                        </div>
+                          </div>
 
-                        <p className="text-sm text-gray-600 truncate">{conversation.lastMessage}</p>
+                          <p className="text-sm text-gray-600 truncate">{conversation.lastMessage}</p>
                         </div>
                       </div>
                     </div>

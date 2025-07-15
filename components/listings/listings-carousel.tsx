@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Image from "next/image"
-import { ChevronLeft, ChevronRight, Star, MapPin, Bookmark, MessageCircle, Camera } from "lucide-react"
+import { ChevronLeft, ChevronRight, Star, MapPin, Bookmark, MessageCircle, Camera, ShoppingBag } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -79,7 +79,7 @@ export default function ListingsCarousel() {
   }
 
   const handleBuyNow = (itemId: string) => {
-    window.location.href = `/messages?item=${itemId}&action=buy`
+    window.location.href = `/checkout?listing_id=${itemId}`
   }
 
   const handleTryOn = (itemId: string) => {
@@ -201,7 +201,7 @@ export default function ListingsCarousel() {
                       onClick={() => handleBuyNow(item.id)}
                       className="text-xs bg-green-600 hover:bg-green-700 col-span-1 p-2"
                     >
-                      <MessageCircle className="h-3 w-3 mr-1" />
+                      <ShoppingBag className="h-3 w-3 mr-1" />
                       <span className="hidden sm:inline">Buy</span>
                     </Button>
                   </div>

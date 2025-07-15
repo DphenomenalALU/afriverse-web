@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react"
 import Image from "next/image"
-import { Camera, RotateCcw, Download, Share2, ArrowLeft, Sparkles, Zap } from "lucide-react"
+import { Camera, RotateCcw, Download, Share2, ArrowLeft, Sparkles, Zap, ShoppingBag } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -82,7 +82,7 @@ export default function TryOnPage() {
   }
 
   const handleBuyNow = (itemId: number) => {
-    window.location.href = `/messages?item=${itemId}&action=buy`
+    window.location.href = `/checkout?listing_id=${itemId}`
   }
 
   return (
@@ -215,6 +215,7 @@ export default function TryOnPage() {
                           className="bg-green-600 hover:bg-green-700"
                           onClick={() => handleBuyNow(selectedItem.id)}
                         >
+                          <ShoppingBag className="h-4 w-4 mr-2" />
                           Buy Now
                         </Button>
                       </div>
