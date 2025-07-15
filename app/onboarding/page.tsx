@@ -20,7 +20,6 @@ const onboardingSteps = [
   "Budget & Frequency",
   "Size & Fit",
   "Sustainability Goals",
-  "AI Curation Setup",
 ]
 
 const styleCategories = [
@@ -446,22 +445,22 @@ export default function OnboardingPage() {
           {currentStep === 4 && (
             <div className="text-center mb-12">
               <div className="flex items-center justify-center gap-2 mb-6">
-                <Sparkles className="h-8 w-8 text-purple-600" />
-                <h2 className="text-4xl font-bold text-gray-900">AI Curation Ready!</h2>
+                <CheckCircle className="h-8 w-8 text-green-600" />
+                <h2 className="text-4xl font-bold text-gray-900">All Set!</h2>
               </div>
               <p className="text-xl text-gray-600 mb-12">
-                Your personal style profile is complete. Here's how Afriverse will work for you:
+                Your preferences are saved. Start exploring sustainable fashion that matches your style.
               </p>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
                 <Card className="text-center">
                   <CardContent className="p-6">
-                    <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Sparkles className="h-8 w-8 text-purple-600" />
+                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Heart className="h-8 w-8 text-green-600" />
                     </div>
-                    <h3 className="font-semibold text-gray-900 mb-2">AI Curation</h3>
+                    <h3 className="font-semibold text-gray-900 mb-2">Personalized Experience</h3>
                     <p className="text-gray-600 text-sm">
-                      Our AI selects pieces from our warehouse that match your style and budget
+                      Discover items that match your style and preferences
                     </p>
                   </CardContent>
                 </Card>
@@ -471,65 +470,29 @@ export default function OnboardingPage() {
                     <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                       <Package className="h-8 w-8 text-green-600" />
                     </div>
-                    <h3 className="font-semibold text-gray-900 mb-2">Curated Box</h3>
-                    <p className="text-gray-600 text-sm">Receive a personalized box with 3-5 pre-loved pieces to try</p>
+                    <h3 className="font-semibold text-gray-900 mb-2">Sustainable Fashion</h3>
+                    <p className="text-gray-600 text-sm">Shop pre-loved pieces that make a difference</p>
                   </CardContent>
                 </Card>
 
                 <Card className="text-center">
                   <CardContent className="p-6">
-                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Heart className="h-8 w-8 text-blue-600" />
+                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <DollarSign className="h-8 w-8 text-green-600" />
                     </div>
-                    <h3 className="font-semibold text-gray-900 mb-2">Keep or Return</h3>
-                    <p className="text-gray-600 text-sm">
-                      Keep what you love, return the rest. Only pay for what you keep
-                    </p>
+                    <h3 className="font-semibold text-gray-900 mb-2">Smart Savings</h3>
+                    <p className="text-gray-600 text-sm">Get great deals while supporting sustainability</p>
                   </CardContent>
                 </Card>
               </div>
 
-              {/* Summary */}
-              <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
-                <CardContent className="p-8">
-                  <h3 className="text-xl font-bold text-gray-900 mb-4">Your Style Profile</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-2">Selected Styles:</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedStyles.map((styleId) => {
-                          const style = styleCategories.find((s) => s.id === styleId)
-                          return (
-                            <Badge key={styleId} className="bg-green-100 text-green-800">
-                              {style?.name}
-                            </Badge>
-                          )
-                        })}
-                      </div>
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-2">Budget & Frequency:</h4>
-                      <p className="text-gray-700">
-                        ${budget[0]}/month • {frequency}
-                      </p>
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-2">Sizes:</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {sizes.map((size) => (
-                          <Badge key={size} variant="secondary">
-                            {size}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-2">Impact Goals:</h4>
-                      <p className="text-gray-700">{selectedGoals.length} goals selected</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <Button
+                className="w-full max-w-md mx-auto bg-green-600 hover:bg-green-700 py-6 text-lg font-semibold"
+                onClick={handleComplete}
+              >
+                Start Shopping
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
             </div>
           )}
 
