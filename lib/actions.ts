@@ -45,6 +45,7 @@ export async function sendConfirmationEmail(purchaseId: string) {
         purchase,
         listing,
         buyerName: buyer.name || 'Valued Customer',
+        buyerEmail: buyer.email,
       }),
     });
 
