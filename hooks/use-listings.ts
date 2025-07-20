@@ -57,6 +57,7 @@ export function useListings(options: UseListingsOptions = {}): UseListingsReturn
             name
           )
         `)
+        .eq('status', 'active') // Only show active (not sold) listings
 
       // Apply filters
       if (options.priceRange) {
