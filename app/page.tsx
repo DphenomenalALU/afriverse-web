@@ -67,7 +67,7 @@ export default function Home() {
                 size="lg"
                 className="border-2 border-white text-white hover:bg-white hover:text-gray-900 px-6 sm:px-8 py-4 sm:py-6 text-base sm:text-lg rounded-full bg-transparent backdrop-blur-sm"
               >
-                <Link href="/onboarding">
+                <Link href="/I onboarding">
                   Find Your Style
                   <Sparkles className="ml-2 h-4 w-4 sm:h-5 sm:w-5" />
                 </Link>

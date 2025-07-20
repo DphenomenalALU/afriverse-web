@@ -21,6 +21,7 @@ import {
 import { CheckoutSuccessDialog } from "./checkout-success-dialog"
 import { countries } from "@/lib/data/countries"
 import { Database } from "@/lib/supabase/types"
+import { sendConfirmationEmail } from '@/lib/actions';
 
 interface CheckoutFormProps {
   listingId: string
@@ -155,6 +156,15 @@ export function CheckoutForm({
       }
 
       setShowSuccess(true)
+
+      // Send confirmation email
+      const emailResult = await sendConfirmationEmail(purchase.id);
+
+      if (!emailResult.success) {
+        console.error('Failed to send email:', emailResult.error);
+        // Optionally show a toast
+        toast.error('Order placed successfully, but failed to send confirmation email.');
+      }
     } catch (error) {
       console.error("Checkout error:", error)
       toast.error(
