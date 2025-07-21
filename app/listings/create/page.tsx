@@ -6,7 +6,7 @@ import { useState } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
-import { Upload, X, DollarSign, Package, Camera, Tag, MapPin } from "lucide-react"
+import { Upload, X, DollarSign, Package, Camera, Tag, MapPin, CheckCircle, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -56,6 +56,8 @@ export default function CreateListingPage() {
   })
 
   const [images, setImages] = useState<string[]>([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSuccess, setIsSuccess] = useState(false)
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -91,8 +93,8 @@ export default function CreateListingPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('CreateListingPage: Starting form submission')
-    
+    setIsSubmitting(true)
+
     try {
       console.log('CreateListingPage: Checking authentication')
       // Get current session first to compare
@@ -195,12 +197,7 @@ export default function CreateListingPage() {
         return
       }
 
-      toast({
-        title: "Listing created successfully",
-        description: "Your item has been listed for sale.",
-      })
-
-      router.push('/listings')
+      setIsSuccess(true)
     } catch (error) {
       console.error('CreateListingPage: Error in form submission:', error)
       toast({
@@ -208,7 +205,33 @@ export default function CreateListingPage() {
         description: "Please try again later.",
         variant: "destructive",
       })
+    } finally {
+      setIsSubmitting(false)
     }
+  }
+
+  if (isSuccess) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        <SiteHeader />
+        <main className="flex-1 flex items-center justify-center">
+          <Card className="w-full max-w-md p-6 text-center shadow-lg">
+            <CardContent className="pt-6">
+              <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Success!</h2>
+              <p className="text-gray-600 mb-6">Your product has been listed.</p>
+              <Button
+                onClick={() => router.push("/listings")}
+                className="w-full bg-green-600 hover:bg-green-700"
+              >
+                Continue to Listings
+              </Button>
+            </CardContent>
+          </Card>
+        </main>
+        <SiteFooter />
+      </div>
+    )
   }
 
   return (
@@ -487,8 +510,15 @@ export default function CreateListingPage() {
               <Button type="button" variant="outline" className="flex-1 bg-transparent">
                 Save as Draft
               </Button>
-              <Button type="submit" className="flex-1 bg-green-600 hover:bg-green-700">
-                List Item
+              <Button type="submit" className="flex-1 bg-green-600 hover:bg-green-700" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Listing Item...
+                  </>
+                ) : (
+                  "List Item"
+                )}
               </Button>
             </div>
           </form>
