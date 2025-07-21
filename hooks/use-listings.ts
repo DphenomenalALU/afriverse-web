@@ -52,21 +52,30 @@ export function useListings(options: UseListingsOptions = {}): UseListingsReturn
     try {
       setError(null)
 
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
       let query = supabase
-        .from('listings')
-        .select(`
+        .from("listings")
+        .select(
+          `
           *,
           profiles:user_id (
             name
           )
-        `)
-        .eq('status', 'active') // Only show active (not sold) listings
+        `,
+        )
+        .eq("status", "active") // Only show active (not sold) listings
+
+      // Exclude listings from the current user
+      if (user) {
+        query = query.neq("user_id", user.id)
+      }
 
       // Apply filters
       if (options.priceRange) {
-        query = query
-          .gte('price', options.priceRange[0])
-          .lte('price', options.priceRange[1])
+        query = query.gte("price", options.priceRange[0]).lte("price", options.priceRange[1])
       }
 
       if (options.categories?.length) {
@@ -102,7 +111,7 @@ export function useListings(options: UseListingsOptions = {}): UseListingsReturn
     } finally {
       setIsLoading(false)
     }
-  }, [memoizedOptions])
+  }, [memoizedOptions, supabase])
 
   useEffect(() => {
     let timeoutId: NodeJS.Timeout
