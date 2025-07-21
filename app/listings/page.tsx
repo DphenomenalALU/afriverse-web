@@ -555,7 +555,7 @@ export default function ListingsPage({ searchParams, params }: PageProps) {
               </div>
           ) : (
             listings.map((listing) => (
-              <Card key={listing.id} className={viewMode === "list" ? "overflow-hidden" : ""}>
+              <Card key={listing.id} className="overflow-hidden">
                 <CardContent className={viewMode === "list" ? "p-4 flex gap-4" : "p-0"}>
                   <div
                     className={
@@ -587,7 +587,7 @@ export default function ListingsPage({ searchParams, params }: PageProps) {
                   </div>
 
                   <div className={viewMode === "list" ? "flex-1" : "p-4"}>
-                    <h3 className="font-medium text-gray-900 text-lg mb-1">{listing.title}</h3>
+                    <h3 className="font-medium text-gray-900 text-lg mb-1 truncate">{listing.title}</h3>
                     <p className="text-gray-600">
                       {listing.brand} • Size {listing.size}
                       </p>

@@ -69,7 +69,6 @@ export default function CreateListingPage() {
     sellingPrice: "",
     location: "",
     style: "",
-    tryOnAvailable: false,
   })
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -166,6 +165,8 @@ export default function CreateListingPage() {
         }
       }
 
+      const tryOnEnabled = formData.category === "Shoes" || formData.category === "Bags & Accessories"
+
       // Create the listing in the database
       const { error: listingError } = await supabase
         .from('listings')
@@ -180,7 +181,7 @@ export default function CreateListingPage() {
           price: parseFloat(formData.sellingPrice),
           original_price: formData.originalPrice ? parseFloat(formData.originalPrice) : null,
           location: formData.location,
-          try_on_available: formData.tryOnAvailable,
+          try_on_available: tryOnEnabled,
           images: imageUrls, 
           status: 'active',
           views: 0,
@@ -489,19 +490,7 @@ export default function CreateListingPage() {
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="tryOnAvailable"
-                      checked={formData.tryOnAvailable}
-                      onCheckedChange={(checked) => setFormData({ ...formData, tryOnAvailable: checked as boolean })}
-                    />
-                    <Label htmlFor="tryOnAvailable">
-                      Available for AR try-on
-                      <Badge className="ml-2 bg-purple-100 text-purple-800">Premium</Badge>
-                    </Label>
-                  </div>
-                </div>
+                <div className="space-y-4"></div>
               </CardContent>
             </Card>
 
