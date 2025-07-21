@@ -9,6 +9,7 @@ interface UseListingsOptions {
   categories?: string[]
   conditions?: string[]
   sizes?: string[]
+  styles?: string[]
   searchQuery?: string
 }
 
@@ -35,6 +36,7 @@ export function useListings(options: UseListingsOptions = {}): UseListingsReturn
     categories: options.categories?.join(','),
     conditions: options.conditions?.join(','),
     sizes: options.sizes?.join(','),
+    styles: options.styles?.join(','),
     searchQuery: options.searchQuery
   }), [
     options.priceRange?.[0],
@@ -42,6 +44,7 @@ export function useListings(options: UseListingsOptions = {}): UseListingsReturn
     options.categories?.join(','),
     options.conditions?.join(','),
     options.sizes?.join(','),
+    options.styles?.join(','),
     options.searchQuery
   ])
 
@@ -76,6 +79,13 @@ export function useListings(options: UseListingsOptions = {}): UseListingsReturn
 
       if (options.sizes?.length) {
         query = query.in('size', options.sizes)
+      }
+
+      if (options.styles?.length) {
+        query = query.in(
+          'style',
+          options.styles.map((s) => s.toLowerCase()),
+        )
       }
 
       if (options.searchQuery) {

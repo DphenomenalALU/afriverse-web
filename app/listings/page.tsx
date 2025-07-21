@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Search, Filter, Grid3X3, List, Bookmark, MessageCircle, Camera, MapPin, Clock, Star, Loader2, ShoppingBag } from "lucide-react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { useListings } from "@/hooks/use-listings"
 import { useToast } from "@/hooks/use-toast"
@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge"
 import { Slider } from "@/components/ui/slider"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Separator } from "@/components/ui/separator"
 import ImageWithFallback from "@/components/ui/image-with-fallback"
 import SiteHeader from "@/components/site-header"
@@ -30,6 +31,8 @@ const categories = [
   "Bags & Accessories",
   "Jewelry",
 ]
+
+const styles = ["Minimalist", "Vintage", "Bohemian", "Professional", "Streetwear", "Romantic"]
 
 const sizes = ["XS", "S", "M", "L", "XL", "XXL"]
 
@@ -76,10 +79,37 @@ export default function ListingsPage({ searchParams, params }: PageProps) {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [selectedConditions, setSelectedConditions] = useState<string[]>([])
   const [selectedSizes, setSelectedSizes] = useState<string[]>([])
+  const [selectedStyles, setSelectedStyles] = useState<string[]>([])
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [savingStates, setSavingStates] = useState<Record<string, boolean>>({})
   const [savedStates, setSavedStates] = useState<Record<string, boolean>>({})
   const { cartItems, addToCart, removeFromCart, isItemSaved } = useCart()
+  const pathname = usePathname()
+
+  useEffect(() => {
+    const styles = searchParamsObj.get("styles")
+    const sizes = searchParamsObj.get("sizes")
+    const maxPrice = searchParamsObj.get("maxPrice")
+
+    if (styles) {
+      setSelectedStyles(styles.split(",").map((s) => s.charAt(0).toUpperCase() + s.slice(1)))
+    }
+    if (sizes) {
+      setSelectedSizes(sizes.split(","))
+    }
+    if (maxPrice) {
+      setPriceRange([0, parseInt(maxPrice)])
+    }
+  }, [searchParamsObj])
+
+  const handleClearFilters = () => {
+    setPriceRange([0, 1000])
+    setSelectedCategories([])
+    setSelectedConditions([])
+    setSelectedSizes([])
+    setSelectedStyles([])
+    router.push(pathname)
+  }
 
   const { listings, isLoading, error } = useListings({
     searchQuery,
@@ -87,6 +117,7 @@ export default function ListingsPage({ searchParams, params }: PageProps) {
     categories: selectedCategories,
     conditions: selectedConditions,
     sizes: selectedSizes,
+    styles: selectedStyles,
   })
 
   // Load initial saved states
@@ -324,6 +355,36 @@ export default function ListingsPage({ searchParams, params }: PageProps) {
 
                   <Separator />
 
+                  {/* Styles */}
+                  <div>
+                    <h3 className="font-medium text-gray-900 mb-4">Styles</h3>
+                    <div className="space-y-2">
+                      {styles.map((style) => (
+                        <div key={style} className="flex items-center">
+                          <Checkbox
+                            id={`style-${style}`}
+                            checked={selectedStyles.includes(style)}
+                            onCheckedChange={(checked) => {
+                              setSelectedStyles(
+                                checked
+                                  ? [...selectedStyles, style]
+                                  : selectedStyles.filter((s) => s !== style),
+                              )
+                            }}
+                          />
+                          <label
+                            htmlFor={`style-${style}`}
+                            className="ml-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          >
+                            {style}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Separator />
+
                   {/* Conditions */}
                   <div>
                     <h3 className="font-medium text-gray-900 mb-4">Condition</h3>
@@ -451,12 +512,7 @@ export default function ListingsPage({ searchParams, params }: PageProps) {
                       <Button
               variant="ghost"
                         size="sm"
-                        onClick={() => {
-                setSelectedCategories([])
-                setSelectedConditions([])
-                setSelectedSizes([])
-                setPriceRange([0, 1000])
-              }}
+                        onClick={handleClearFilters}
             >
               Clear all
                       </Button>
@@ -492,13 +548,7 @@ export default function ListingsPage({ searchParams, params }: PageProps) {
               <h2 className="text-xl font-semibold text-gray-900 mb-2">No listings found</h2>
               <p className="text-gray-600 mb-6">Try adjusting your filters or search terms</p>
               <Button
-                onClick={() => {
-                  setSearchQuery("")
-                  setSelectedCategories([])
-                  setSelectedConditions([])
-                  setSelectedSizes([])
-                  setPriceRange([0, 1000])
-                }}
+                onClick={handleClearFilters}
               >
                 Clear Filters
                 </Button>

@@ -74,6 +74,7 @@ export interface Database {
           views: number
           tags: string[] | null
           measurements: Json | null
+          style: "minimalist" | "vintage" | "bohemian" | "professional" | "streetwear" | "romantic" | null
         }
         Insert: {
           id?: string
@@ -95,6 +96,7 @@ export interface Database {
           views?: number
           tags?: string[] | null
           measurements?: Json | null
+          style?: "minimalist" | "vintage" | "bohemian" | "professional" | "streetwear" | "romantic" | null
         }
         Update: {
           id?: string
@@ -116,6 +118,7 @@ export interface Database {
           views?: number
           tags?: string[] | null
           measurements?: Json | null
+          style?: "minimalist" | "vintage" | "bohemian" | "professional" | "streetwear" | "romantic" | null
         }
       }
       purchases: {

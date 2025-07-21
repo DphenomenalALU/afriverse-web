@@ -30,7 +30,9 @@ const categories = [
   "Jewelry",
 ]
 
-const brands = ["Zara", "H&M", "Nike", "Adidas", "Levi's", "Gucci", "Prada", "Louis Vuitton", "Other"]
+const styles = ["Minimalist", "Vintage", "Bohemian", "Professional", "Streetwear", "Romantic"]
+
+const brands = ["Zara", "Nike", "Adidas", "Levi's", "Gucci", "Prada", "Louis Vuitton", "Other"]
 
 const sizes = ["XS", "S", "M", "L", "XL", "XXL"]
 
@@ -64,6 +66,7 @@ export default function CreateListingPage() {
     originalPrice: "",
     sellingPrice: "",
     location: "",
+    style: "",
     tryOnAvailable: false,
   })
 
@@ -179,6 +182,7 @@ export default function CreateListingPage() {
           images: imageUrls, 
           status: 'active',
           views: 0,
+          style: formData.style.toLowerCase()
         })
 
       if (listingError) {
@@ -291,6 +295,26 @@ export default function CreateListingPage() {
                   />
                 </div>
 
+                <div>
+                  <Label>Style *</Label>
+                  <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mt-2">
+                    {styles.map((style) => (
+                      <button
+                        key={style}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, style })}
+                        className={`p-3 text-sm border rounded-lg transition-colors ${
+                          formData.style === style
+                            ? "border-green-500 bg-green-50 text-green-700"
+                            : "border-gray-200 hover:border-gray-300"
+                        }`}
+                      >
+                        {style}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <Label>Category *</Label>
@@ -356,7 +380,7 @@ export default function CreateListingPage() {
 
                   <div>
                     <Label htmlFor="location">Location *</Label>
-                    <div className="relative">
+                    <div className="relative mt-2">
                       <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                       <Input
                         id="location"
