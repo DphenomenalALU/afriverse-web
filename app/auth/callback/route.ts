@@ -27,8 +27,20 @@ export async function GET(request: Request) {
       }
     )
 
-    await supabase.auth.exchangeCodeForSession(code)
+    const {
+      data: { session },
+    } = await supabase.auth.exchangeCodeForSession(code)
+
+    if (session) {
+      // Check if the user has a profile
+      const { data: profile } = await supabase.from("profiles").select("id").eq("id", session.user.id).single()
+
+      if (!profile) {
+        // This is a new user, redirect to onboarding
+        return NextResponse.redirect(new URL("/onboarding", request.url))
+      }
+    }
   }
 
-  return NextResponse.redirect(new URL('/listings', requestUrl.origin))
+  return NextResponse.redirect(new URL("/listings", request.url))
 } 

@@ -23,42 +23,42 @@ const styleCategories = [
     id: "minimalist",
     name: "Minimalist",
     description: "Clean lines, neutral colors, timeless pieces",
-    image: "/placeholder.svg?height=200&width=200",
+    image: "/minimalist.jpg?height=200&width=200",
     tags: ["Clean", "Simple", "Timeless"],
   },
   {
     id: "vintage",
     name: "Vintage",
     description: "Retro pieces with character and history",
-    image: "/placeholder.svg?height=200&width=200",
+    image: "/vintage.jpg?height=200&width=200",
     tags: ["Retro", "Unique", "Character"],
   },
   {
     id: "bohemian",
     name: "Bohemian",
     description: "Free-spirited, flowing fabrics, earthy tones",
-    image: "/placeholder.svg?height=200&width=200",
+    image: "/bohemian.jpg?height=200&width=200",
     tags: ["Flowy", "Earthy", "Free-spirited"],
   },
   {
     id: "professional",
     name: "Professional",
     description: "Polished looks for work and formal occasions",
-    image: "/placeholder.svg?height=200&width=200",
+    image: "/professional.jpg?height=200&width=200",
     tags: ["Polished", "Formal", "Sharp"],
   },
   {
     id: "streetwear",
     name: "Streetwear",
     description: "Urban, casual, trendy everyday pieces",
-    image: "/placeholder.svg?height=200&width=200",
+    image: "/streetwear.jpg?height=200&width=200",
     tags: ["Urban", "Casual", "Trendy"],
   },
   {
     id: "romantic",
     name: "Romantic",
     description: "Feminine, soft fabrics, delicate details",
-    image: "/placeholder.svg?height=200&width=200",
+    image: "/romantic.jpg?height=200&width=200",
     tags: ["Feminine", "Soft", "Delicate"],
   },
 ]
@@ -182,7 +182,7 @@ export default function OnboardingPage() {
                           alt={style.name}
                           width={200}
                           height={200}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover object-top"
                         />
                       </div>
                       <h3 className="font-semibold text-gray-900 mb-2">{style.name}</h3>
