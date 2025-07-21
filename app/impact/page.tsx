@@ -162,9 +162,6 @@ export default function ImpactPage() {
       <div className="container py-8">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Leaderboards</h2>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Discover who's making the biggest impact in sustainable fashion across our global community.
-          </p>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="max-w-6xl mx-auto">
@@ -175,7 +172,6 @@ export default function ImpactPage() {
 
           <TabsContent value="sellers" className="space-y-6">
             <div className="text-center mb-8">
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">Top Sellers</h3>
               <p className="text-gray-600">Leading the circular economy by giving clothes new life</p>
             </div>
 
@@ -232,7 +228,6 @@ export default function ImpactPage() {
 
           <TabsContent value="buyers" className="space-y-6">
             <div className="text-center mb-8">
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">Top Buyers</h3>
               <p className="text-gray-600">Champions of conscious consumption and sustainable shopping</p>
             </div>
 
