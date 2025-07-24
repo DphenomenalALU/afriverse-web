@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
@@ -18,6 +17,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/hooks/use-toast"
 import SiteHeader from "@/components/site-header"
 import SiteFooter from "@/components/site-footer"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { generate3DModel } from "@/lib/actions"
 
 const categories = [
   "Dresses",
@@ -70,6 +71,29 @@ export default function CreateListingPage() {
     location: "",
     style: "",
   })
+  const [isGenerating3D, setIsGenerating3D] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState(300); // 5 minutes in seconds
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (isGenerating3D && timeRemaining > 0) {
+      interval = setInterval(() => {
+        setTimeRemaining((prev) => prev - 1);
+      }, 1000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isGenerating3D, timeRemaining]);
+
+  useEffect(() => {
+    // Reset timer when generation starts
+    if (isGenerating3D) {
+      setTimeRemaining(300);
+    }
+  }, [isGenerating3D]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
@@ -165,10 +189,8 @@ export default function CreateListingPage() {
         }
       }
 
-      const tryOnEnabled = formData.category === "Bags & Accessories"
-
-      // Create the listing in the database
-      const { error: listingError } = await supabase
+      // First create the listing without 3D model
+      const { data: listing, error: listingError } = await supabase
         .from('listings')
         .insert({
           user_id: user.id,
@@ -181,12 +203,17 @@ export default function CreateListingPage() {
           price: parseFloat(formData.sellingPrice),
           original_price: formData.originalPrice ? parseFloat(formData.originalPrice) : null,
           location: formData.location,
-          try_on_available: tryOnEnabled,
+          try_on_available: false,
           images: imageUrls, 
           status: 'active',
           views: 0,
-          style: formData.style.toLowerCase()
+          style: formData.style.toLowerCase(),
+          model_3d: null,
+          measurements: {},
+          tags: []
         })
+        .select()
+        .single();
 
       if (listingError) {
         console.error('CreateListingPage: Database error:', listingError)
@@ -198,7 +225,53 @@ export default function CreateListingPage() {
         return
       }
 
-      setIsSuccess(true)
+      // If it's a bag/accessory, generate 3D model after listing creation
+      if (formData.category === "Bags & Accessories" && imageUrls.length > 0) {
+        setIsGenerating3D(true);
+        try {
+          console.log('Starting 3D model generation for:', imageUrls[0]);
+          const result = await generate3DModel(imageUrls[0], user.id);
+          console.log('3D model generation result:', result);
+          
+          if (result.success && result.url) {
+            // Update the listing with the 3D model URL and try_on_available
+            const { error: updateError } = await supabase
+              .from('listings')
+              .update({
+                model_3d: result.url,
+                try_on_available: true
+              })
+              .eq('id', listing.id);
+
+            if (updateError) {
+              console.error('Failed to update listing with 3D model:', updateError);
+              toast({
+                title: "Warning",
+                description: "Listing created but 3D model could not be saved.",
+                variant: "destructive",
+              });
+            }
+          } else {
+            console.error('3D model generation failed:', result.error);
+            toast({
+              title: "Warning",
+              description: "Listing created but 3D model generation failed.",
+              variant: "destructive",
+            });
+          }
+        } catch (error) {
+          console.error('3D model generation error:', error);
+          toast({
+            title: "Warning",
+            description: "Listing created but 3D model generation failed.",
+            variant: "destructive",
+          });
+        } finally {
+          setIsGenerating3D(false);
+        }
+      }
+
+      setIsSuccess(true);
     } catch (error) {
       console.error('CreateListingPage: Error in form submission:', error)
       toast({
@@ -210,6 +283,13 @@ export default function CreateListingPage() {
       setIsSubmitting(false)
     }
   }
+
+  const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setFormData(prev => ({
+      ...prev,
+      category: e.target.value
+    }));
+  };
 
   if (isSuccess) {
     return (
@@ -515,6 +595,47 @@ export default function CreateListingPage() {
       </div>
 
       <SiteFooter />
+
+      <Dialog open={isGenerating3D} onOpenChange={setIsGenerating3D}>
+        <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-center text-gray-900 dark:text-white">
+              Generating 3D Model
+            </DialogTitle>
+            <DialogDescription className="text-center space-y-4">
+              <p className="text-gray-600 dark:text-gray-300">
+                We're creating a 3D version of your product for virtual try-on. This process may take up to 5 minutes.
+              </p>
+              <div className="flex flex-col items-center justify-center py-6">
+                <div className="w-24 h-24 relative">
+                  <div className="absolute inset-0 border-4 border-green-200 rounded-full"></div>
+                  <div 
+                    className="absolute inset-0 border-4 border-green-600 rounded-full animate-spin"
+                    style={{ 
+                      borderRightColor: 'transparent',
+                      borderBottomColor: 'transparent'
+                    }}
+                  ></div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-lg font-semibold text-green-600">
+                      {Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-4 w-full max-w-xs bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${((300 - timeRemaining) / 300) * 100}%` }}
+                  ></div>
+                </div>
+                <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+                  Please keep this window open
+                </p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
