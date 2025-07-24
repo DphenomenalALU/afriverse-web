@@ -165,7 +165,7 @@ export default function CreateListingPage() {
         }
       }
 
-      const tryOnEnabled = formData.category === "Shoes" || formData.category === "Bags & Accessories"
+      const tryOnEnabled = formData.category === "Bags & Accessories"
 
       // Create the listing in the database
       const { error: listingError } = await supabase

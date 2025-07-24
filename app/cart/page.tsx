@@ -229,26 +229,14 @@ export default function CartPage() {
                     </Button>
                   </CardContent>
                 </Card>
-
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <Shield className="h-5 w-5 text-green-600" />
-                      <div>
-                        <h4 className="font-medium">Secure Messaging</h4>
-                        <p className="text-sm text-gray-600">Chat directly with sellers</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
                 
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center gap-3">
                       <Sparkles className="h-5 w-5 text-purple-600" />
                       <div>
-                        <h4 className="font-medium">Try Before You Buy</h4>
-                        <p className="text-sm text-gray-600">Virtual try-on available</p>
+                        <h4 className="font-medium">Try Virtually Before You Buy</h4>
+                        <p className="text-sm text-gray-600">Available for hats and glasses</p>
                       </div>
                     </div>
                   </CardContent>
