@@ -1,14 +1,24 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Script from 'next/script';
+import Head from 'next/head';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import type { Database } from '@/lib/supabase/types';
 
 declare global {
   interface Window {
-    arCleanup?: () => Promise<void>;
+    arCleanup?: () => void;
+  }
+  namespace JSX {
+    interface IntrinsicElements {
+      'a-scene': any;
+      'a-assets': any;
+      'a-asset-item': any;
+      'a-camera': any;
+      'a-entity': any;
+      'a-gltf-model': any;
+    }
   }
 }
 
@@ -16,137 +26,170 @@ export default function TryOnPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const productId = searchParams.get('item');
-  const containerRef = useRef<HTMLDivElement>(null);
   const supabase = createClientComponentClient<Database>();
+  const [modelUrl, setModelUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    return () => {
-      if (window.arCleanup) {
-        window.arCleanup();
+    // Load product data and update model source
+    const loadProduct = async () => {
+      try {
+        console.log('Loading product with ID:', productId);
+        const response = await fetch('/api/listings/' + productId);
+        const data = await response.json();
+        
+        console.log('API Response:', data);
+        console.log('3D Model URL:', data.model_3d);
+        
+        if (!data.model_3d) {
+          throw new Error('3D model not available');
+        }
+
+        setModelUrl(data.model_3d);
+
+      } catch (error) {
+        console.error('AR initialization error:', error);
+        const errorMessage = document.querySelector('#error-message');
+        const errorContainer = document.querySelector('#error-container') as HTMLElement;
+        const loadingScreen = document.querySelector('#loading-screen') as HTMLElement;
+        
+        if (errorMessage) {
+          const errorText = error instanceof Error ? error.message : 'Failed to initialize AR';
+          console.error('Setting error message:', errorText);
+          errorMessage.textContent = errorText;
+        }
+        if (errorContainer) {
+          errorContainer.style.display = 'flex';
+        }
+        if (loadingScreen) {
+          loadingScreen.style.display = 'none';
+        }
       }
     };
-  }, []);
+
+    if (productId) {
+      loadProduct();
+    } else {
+      console.error('No product ID provided');
+    }
+
+    return () => {
+      const scene = document.querySelector('a-scene');
+      if (scene) {
+        scene.remove();
+      }
+    };
+  }, [productId]);
+
+  useEffect(() => {
+    if (!modelUrl) return;
+
+    const setupScene = () => {
+      const scene = document.querySelector('a-scene');
+      if (!scene) {
+        console.error('Scene not found');
+        return;
+      }
+
+      // Wait for scene to load
+      scene.addEventListener('loaded', () => {
+        console.log('Scene loaded');
+        
+        // Now we can safely access assets
+        const modelAsset = document.querySelector('#productModel');
+        if (modelAsset) {
+          console.log('Setting model URL to:', modelUrl);
+          modelAsset.setAttribute('src', modelUrl);
+          
+          modelAsset.addEventListener('loaded', () => {
+            console.log('Model loaded successfully');
+            const loadingScreen = document.querySelector('#loading-screen') as HTMLElement;
+            if (loadingScreen) {
+              loadingScreen.style.display = 'none';
+            }
+          });
+          
+          modelAsset.addEventListener('error', (error) => {
+            console.error('Error loading model:', error);
+          });
+        } else {
+          console.error('Model asset element not found after scene load');
+        }
+      });
+    };
+
+    // Give A-Frame a moment to initialize
+    setTimeout(setupScene, 100);
+  }, [modelUrl]);
 
   const handleStopTryOn = () => {
-    if (window.arCleanup) {
-      window.arCleanup();
+    const scene = document.querySelector('a-scene');
+    if (scene) {
+      scene.remove();
     }
     router.back();
   };
 
   return (
     <>
-      {/* Import Maps for Three.js + MindAR Face */}
-      <Script id="import-maps" type="importmap">
-        {`
-          {
-            "imports": {
-              "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-              "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
-              "mindar-face-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-face-three.prod.js"
-            }
-          }
-        `}
-      </Script>
-
-      {/* MindAR App Script */}
-      <Script type="module">
-        {`
-          import * as THREE from 'three';
-          import { MindARThree } from 'mindar-face-three';
-          import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-
-          async function initAR() {
-            try {
-              // Get the product ID
-              const productId = new URLSearchParams(window.location.search).get('item');
-              if (!productId) throw new Error('Product ID is required');
-
-              // Fetch the listing data
-              const response = await fetch('/api/listings/' + productId);
-              const data = await response.json();
-              if (!data.model_3d) throw new Error('3D model not available');
-
-              // Initialize MindAR
-              const mindarThree = new MindARThree({
-                container: document.querySelector('#ar-container'),
-              });
-
-              const { renderer, scene, camera } = mindarThree;
-
-              // Create lights
-              const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
-              scene.add(ambientLight);
-
-              const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
-              directionalLight.position.set(0, 1, 0);
-              scene.add(directionalLight);
-
-              // Load 3D model
-              const loader = new GLTFLoader();
-              
-              // Create a loading manager to handle loading events
-              const manager = new THREE.LoadingManager();
-              manager.onProgress = function(url, itemsLoaded, itemsTotal) {
-                const progress = (itemsLoaded / itemsTotal * 100).toFixed(0);
-                document.querySelector('#loading-progress').textContent = progress + '%';
-              };
-              
-              loader.setManager(manager);
-
-              try {
-                const gltf = await loader.loadAsync(data.model_3d);
-                const model = gltf.scene;
-
-                // Add model to scene
-                scene.add(model);
-
-                // Position the model
-                model.position.set(0, 0, -0.5);
-                model.scale.set(0.1, 0.1, 0.1);
-
-                // Hide loading screen
-                document.querySelector('#loading-screen').style.display = 'none';
-
-                // Start AR
-                await mindarThree.start();
-
-                // Set up cleanup
-                window.arCleanup = async () => {
-                  await mindarThree.stop();
-                  renderer.dispose();
-                };
-
-              } catch (modelError) {
-                throw new Error('Failed to load 3D model: ' + modelError.message);
-              }
-
-            } catch (error) {
-              console.error('AR initialization error:', error);
-              document.querySelector('#error-message').textContent = 
-                error instanceof Error ? error.message : 'Failed to initialize AR';
-              document.querySelector('#error-container').style.display = 'flex';
-              document.querySelector('#loading-screen').style.display = 'none';
-            }
-          }
-
-          // Start AR initialization
-          document.querySelector('#loading-screen').style.display = 'flex';
-          initAR();
-        `}
-      </Script>
+      <Head>
+        <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-face-aframe.prod.js"></script>
+      </Head>
 
       <div className="relative h-screen">
-        <div id="ar-container" ref={containerRef} className="h-full w-full" />
+        <div className="example-container">
+          <a-scene
+            mindar-face
+            embedded
+            color-space="sRGB"
+            renderer="colorManagement: true; physicallyCorrectLights: true"
+            vr-mode-ui="enabled: false"
+            device-orientation-permission-ui="enabled: false"
+          >
+            <a-assets>
+              <a-asset-item 
+                id="headOccluder" 
+                src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/face-tracking/assets/sparkar/headOccluder.glb"
+              ></a-asset-item>
+              <a-asset-item 
+                id="productModel"
+                crossorigin="anonymous"
+              ></a-asset-item>
+            </a-assets>
+
+            <a-camera active="false" position="0 0 0"></a-camera>
+
+            {/* Head occluder for realistic rendering */}
+            <a-entity mindar-face-target="anchorIndex: 168">
+              <a-gltf-model
+                mindar-face-occluder
+                position="0 -0.3 0.15"
+                rotation="0 0 0"
+                scale="0.065 0.065 0.065"
+                src="#headOccluder"
+              ></a-gltf-model>
+            </a-entity>
+
+            {/* Product model - adjust position/scale based on product type */}
+            <a-entity mindar-face-target="anchorIndex: 168">
+              <a-gltf-model
+                rotation="0 -0 0"
+                position="0 0 0"
+                scale="0.01 0.01 0.01"
+                src="#productModel"
+              ></a-gltf-model>
+            </a-entity>
+          </a-scene>
+        </div>
         
         {/* Loading Screen */}
-        <div id="loading-screen" className="hidden fixed inset-0 bg-black/80 items-center justify-center z-50">
+        <div id="loading-screen" className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
           <div className="text-center text-white">
             <div className="mb-4">
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
             </div>
-            <h3 className="text-lg font-semibold mb-2">Loading 3D Model</h3>
-            <p id="loading-progress" className="text-sm text-primary">0%</p>
+            <h3 className="text-lg font-semibold mb-2">Loading AR Experience</h3>
+            <p className="text-sm text-primary">Please allow camera access when prompted</p>
           </div>
         </div>
 
@@ -168,11 +211,20 @@ export default function TryOnPage() {
         {/* Stop Button */}
         <button
           onClick={handleStopTryOn}
-          className="absolute top-4 right-4 px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700"
+          className="absolute top-4 right-4 px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700 z-50"
         >
           Stop Try-On
         </button>
       </div>
+
+      <style jsx>{`
+        .example-container {
+          overflow: hidden;
+          position: absolute;
+          width: 100%;
+          height: 100%;
+        }
+      `}</style>
     </>
   );
 }
