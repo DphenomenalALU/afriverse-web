@@ -25,7 +25,7 @@ interface OrderConfirmationProps {
 }
 
 export const OrderConfirmation: React.FC<OrderConfirmationProps> = ({ purchase, listing, buyerName, buyerEmail }) => {
-  const logoUrl = 'https://afriverse-web-nine.vercel.app/images/afriverse-logo.png';
+  const logoUrl = 'https://afriversee.vercel.app/images/afriverse-logo.png';
   const primaryColor = '#10b981';
   const secondaryColor = '#22c55e';
   const textColor = '#1f2937';
@@ -113,7 +113,7 @@ export const OrderConfirmation: React.FC<OrderConfirmationProps> = ({ purchase, 
             </table>
 
             <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-              <a href="https://afriverse-web-nine.vercel.app/profile" style={{ backgroundColor: primaryColor, color: '#ffffff', padding: '12px 24px', borderRadius: '6px', textDecoration: 'none', fontWeight: 'bold' }}>
+              <a href="https://afriversee.vercel.app/profile" style={{ backgroundColor: primaryColor, color: '#ffffff', padding: '12px 24px', borderRadius: '6px', textDecoration: 'none', fontWeight: 'bold' }}>
                 View Your Orders
               </a>
             </div>
@@ -122,7 +122,7 @@ export const OrderConfirmation: React.FC<OrderConfirmationProps> = ({ purchase, 
         <tr>
           <td style={{ padding: '20px 40px', backgroundColor: '#f3f4f6', textAlign: 'center', fontSize: '14px', color: '#6b7280' }}>
             <p>If you have any questions, contact us at <a href="mailto:support@afriverse.com" style={{ color: primaryColor, textDecoration: 'none' }}>support@afriverse.com</a></p>
-            <p style={{ marginTop: '10px' }}><a href={`https://afriverse-web-nine.vercel.app/unsubscribe?email=${encodeURIComponent(buyerEmail)}`} style={{ color: '#6b7280', textDecoration: 'underline' }}>Unsubscribe</a> | Afriverse © {new Date().getFullYear()}</p>
+            <p style={{ marginTop: '10px' }}><a href={`https://afriversee.vercel.app/unsubscribe?email=${encodeURIComponent(buyerEmail)}`} style={{ color: '#6b7280', textDecoration: 'underline' }}>Unsubscribe</a> | Afriverse © {new Date().getFullYear()}</p>
           </td>
         </tr>
       </table>
