@@ -40,18 +40,18 @@ export default function SiteFooter() {
                 </Link>
               </li>
               <li>
-                <Link href="/search?category=women" className="hover:text-green-600 transition-colors">
-                  Women
+                <Link href="/search?category=minimalist" className="hover:text-green-600 transition-colors">
+                  Minimalist
                 </Link>
               </li>
               <li>
-                <Link href="/search?category=men" className="hover:text-green-600 transition-colors">
-                  Men
+                <Link href="/search?category=streetwear" className="hover:text-green-600 transition-colors">
+                  Streetwear
                 </Link>
               </li>
               <li>
-                <Link href="/search?category=accessories" className="hover:text-green-600 transition-colors">
-                  Accessories
+                <Link href="/search?category=professional" className="hover:text-green-600 transition-colors">
+                  Professional
                 </Link>
               </li>
             </ul>
@@ -65,12 +65,12 @@ export default function SiteFooter() {
                 </Link>
               </li>
               <li>
-                <Link href="/seller-guide" className="hover:text-green-600 transition-colors">
+                <Link href="#" className="hover:text-green-600 transition-colors">
                   Seller Guide
                 </Link>
               </li>
               <li>
-                <Link href="/pricing" className="hover:text-green-600 transition-colors">
+                <Link href="#" className="hover:text-green-600 transition-colors">
                   Pricing Tips
                 </Link>
               </li>
@@ -80,12 +80,12 @@ export default function SiteFooter() {
             <h3 className="mb-4 md:mb-6 text-lg md:text-xl font-semibold text-black">Support</h3>
             <ul className="space-y-2 md:space-y-3 text-sm md:text-base text-gray-600">
               <li>
-                <Link href="/help" className="hover:text-green-600 transition-colors">
+                <Link href="#" className="hover:text-green-600 transition-colors">
                   Help Center
                 </Link>
               </li>
               <li>
-                <Link href="/contact" className="hover:text-green-600 transition-colors">
+                <Link href="#" className="hover:text-green-600 transition-colors">
                   Contact Us
                 </Link>
               </li>

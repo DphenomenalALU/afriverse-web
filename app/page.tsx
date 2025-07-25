@@ -46,7 +46,7 @@ export default function Home() {
             </h1>
 
             <p className="text-lg sm:text-xl md:text-2xl mb-8 md:mb-12 max-w-2xl mx-auto leading-relaxed text-white/90">
-              Buy and sell quality secondhand fashion. Save money, reduce waste, and support communities across Africa
+              Buy and sell quality pre-loved fashion. Save money, reduce waste, and support communities across Africa
               with every purchase.
             </p>
 
@@ -170,7 +170,7 @@ export default function Home() {
             <div className="max-w-4xl mx-auto text-center">
               <div className="inline-flex items-center gap-2 bg-purple-100 text-purple-800 px-4 py-2 rounded-full text-sm font-medium mb-8">
                 <Zap className="h-4 w-4" />
-                Revolutionary Technology
+                Virtual Try-On Beta
               </div>
 
               <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-gray-900 mb-6">
@@ -178,7 +178,7 @@ export default function Home() {
               </h2>
 
               <p className="text-lg md:text-xl text-gray-600 mb-12 md:mb-16 max-w-2xl mx-auto">
-                Experience the future of sustainable shopping with AR virtual try-on technology. See how clothes fit
+                Experience the future of sustainable shopping with AR virtual try-on technology. See how hats and accessories fit
                 before making a purchase.
               </p>
 
@@ -188,8 +188,8 @@ export default function Home() {
                   <div className="w-16 h-16 md:w-20 md:h-20 bg-purple-100 rounded-3xl flex items-center justify-center mx-auto mb-4">
                     <Camera className="h-8 w-8 md:h-10 md:w-10 text-purple-600" />
                   </div>
-                  <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-2">1. Scan Yourself</h3>
-                  <p className="text-gray-600 mb-4 md:mb-6">Point your camera and create your virtual model</p>
+                  <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-2">1. Allow Camera Access</h3>
+                  <p className="text-gray-600 mb-4 md:mb-6">Enable camera access and ensure you are in a well lit area to start the virtual try-on experience</p>
                   <ArrowDown className="h-6 w-6 text-purple-400 mx-auto" />
                 </div>
 
@@ -198,7 +198,7 @@ export default function Home() {
                     <Sparkles className="h-8 w-8 md:h-10 md:w-10 text-purple-600" />
                   </div>
                   <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-2">2. Select & Try</h3>
-                  <p className="text-gray-600 mb-4 md:mb-6">Choose any item and see it on yourself instantly</p>
+                  <p className="text-gray-600 mb-4 md:mb-6">Choose any accessory or hat and see it on yourself instantly</p>
                   <ArrowDown className="h-6 w-6 text-purple-400 mx-auto" />
                 </div>
 

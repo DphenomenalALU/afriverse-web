@@ -148,6 +148,8 @@ export async function createListing(formData: FormData) {
             }
           }
         );
+
+        console.log('Replicate response:', {output});
         
         if (output && typeof output === 'object' && 'glb_url' in output) {
           model3dUrl = output.glb_url as string;
@@ -198,9 +200,22 @@ export async function createListing(formData: FormData) {
   }
 } 
 
+type ReplicatePrediction = {
+  url: () => {
+    href: string;
+    origin: string;
+    protocol: string;
+    host: string;
+    hostname: string;
+    port: string;
+    pathname: string;
+    search: string;
+  };
+}
+
 export async function generate3DModel(imageUrl: string, userId: string) {
   try {
-    console.log('Starting 3D model generation with Replicate...');
+    console.log('Starting 3D model generation with Replicate...', { imageUrl });
     
     // Create Supabase client
     const supabase = createClient();
@@ -215,19 +230,29 @@ export async function generate3DModel(imageUrl: string, userId: string) {
           do_remove_background: false
         }
       }
-    );
+    ) as ReplicatePrediction;
 
-    console.log('Replicate response:', result);
-
-    // Check if result is an object with an output property
-    if (result && typeof result === 'object' && 'output' in result && typeof result.output === 'string') {
-      const glbUrl = result.output;
-      console.log('Downloading GLB from:', glbUrl);
+    console.log('Raw Replicate response:', result);
+    
+    try {
+      const urlResult = result.url();
+      console.log('Replicate URL method result:', urlResult);
       
+      const glbUrl = urlResult.href;
+      console.log('GLB URL from Replicate:', glbUrl);
+
+      if (!glbUrl) {
+        throw new Error('No GLB URL returned from Replicate');
+      }
+
       // Download the .glb file from Replicate
       const response = await fetch(glbUrl);
-      if (!response.ok) throw new Error('Failed to download 3D model');
+      if (!response.ok) {
+        console.error('Failed to download GLB file:', response.status, response.statusText);
+        throw new Error('Failed to download 3D model');
+      }
       const modelBlob = await response.blob();
+      console.log('GLB file downloaded, size:', modelBlob.size, 'bytes');
 
       // Upload to Supabase storage
       const fileName = `${userId}/${Date.now()}-${Math.random().toString(36).substring(7)}.glb`;
@@ -240,7 +265,7 @@ export async function generate3DModel(imageUrl: string, userId: string) {
         });
 
       if (uploadError) {
-        console.error('Failed to upload 3D model:', uploadError);
+        console.error('Failed to upload 3D model to Supabase:', uploadError);
         return { success: false, error: 'Failed to upload 3D model' };
       }
 
@@ -249,12 +274,12 @@ export async function generate3DModel(imageUrl: string, userId: string) {
         .from('3d-models')
         .getPublicUrl(modelData.path);
 
-      console.log('3D model uploaded successfully:', publicUrl);
+      console.log('3D model uploaded successfully to:', publicUrl);
       return { success: true, url: publicUrl };
+    } catch (urlError) {
+      console.error('Error accessing Replicate URL:', urlError);
+      return { success: false, error: 'Failed to get model URL from Replicate' };
     }
-
-    console.error('Invalid output from Replicate:', result);
-    return { success: false, error: 'Invalid response from Replicate' };
   } catch (error) {
     console.error('3D model generation error:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Failed to generate 3D model' };
