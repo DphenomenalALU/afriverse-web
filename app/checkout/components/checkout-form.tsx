@@ -22,6 +22,7 @@ import { CheckoutSuccessDialog } from "./checkout-success-dialog"
 import { countries } from "@/lib/data/countries"
 import { Database } from "@/lib/supabase/types"
 import { sendConfirmationEmail } from '@/lib/actions';
+import { updateListingStatus } from '@/lib/actions';
 
 interface CheckoutFormProps {
   listingId: string
@@ -186,15 +187,12 @@ export function CheckoutForm({
         throw new Error(purchaseError.message)
       }
 
-      // Update listing status
-      const { error: listingError } = await supabase
-        .from("listings")
-        .update({ status: "sold" })
-        .eq("id", listingId)
+      // Update listing status using server action
+      const { success, error: listingError } = await updateListingStatus(listingId, "sold")
 
-      if (listingError) {
+      if (!success) {
         console.error("Listing update error:", listingError)
-        throw new Error(listingError.message)
+        throw new Error(listingError || "Failed to update listing status")
       }
 
       // Update seller's total_earned
