@@ -1,12 +1,14 @@
 "use client"
 import Link from "next/link"
 import Image from "next/image"
-import { Menu, ShoppingBag, User2, Search, X } from "lucide-react"
+import { Menu, ShoppingBag, User2, Search, X, Heart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
+import { useCart } from "@/hooks/use-cart"
 
 export default function SiteHeader() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const { cartItems } = useCart()
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white/95 backdrop-blur-md">
@@ -65,9 +67,11 @@ export default function SiteHeader() {
           </Link>
           <Link href="/cart" className="text-gray-700 hover:text-green-600 transition-colors relative">
             <ShoppingBag className="h-5 w-5 md:h-6 md:w-6" />
-            <span className="absolute -top-1 -right-1 flex h-4 w-4 md:h-5 md:w-5 items-center justify-center rounded-full bg-green-600 text-[10px] md:text-[11px] text-white font-medium">
-              3
-            </span>
+            {cartItems.length > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 md:h-5 md:w-5 items-center justify-center rounded-full bg-green-600 text-[10px] md:text-[11px] text-white font-medium">
+                {cartItems.length}
+              </span>
+            )}
             <span className="sr-only">Saved Items</span>
           </Link>
         </div>

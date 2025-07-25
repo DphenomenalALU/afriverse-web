@@ -1,319 +1,178 @@
-"use client"
+'use client';
 
-import { useState, useRef } from "react"
-import Image from "next/image"
-import { Camera, RotateCcw, Download, Share2, ArrowLeft, Sparkles, Zap } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import Link from "next/link"
-import SiteHeader from "@/components/site-header"
-import SiteFooter from "@/components/site-footer"
+import { useEffect, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Script from 'next/script';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import type { Database } from '@/lib/supabase/types';
 
-// Mock clothing items for try-on
-const tryOnItems = [
-  {
-    id: 1,
-    title: "Vintage Denim Jacket",
-    brand: "Levi's",
-    price: 45,
-    image: "/placeholder.svg?height=300&width=300",
-    category: "jackets",
-  },
-  {
-    id: 2,
-    title: "Cotton Summer Dress",
-    brand: "Reformation",
-    price: 65,
-    image: "/placeholder.svg?height=300&width=300",
-    category: "dresses",
-  },
-  {
-    id: 3,
-    title: "Silk Blouse",
-    brand: "Equipment",
-    price: 85,
-    image: "/placeholder.svg?height=300&width=300",
-    category: "tops",
-  },
-  {
-    id: 4,
-    title: "High-Waist Jeans",
-    brand: "Citizens of Humanity",
-    price: 95,
-    image: "/placeholder.svg?height=300&width=300",
-    category: "bottoms",
-  },
-]
+declare global {
+  interface Window {
+    arCleanup?: () => Promise<void>;
+  }
+}
 
 export default function TryOnPage() {
-  const [selectedItem, setSelectedItem] = useState(tryOnItems[0])
-  const [isARActive, setIsARActive] = useState(false)
-  const [cameraPermission, setCameraPermission] = useState<boolean | null>(null)
-  const videoRef = useRef<HTMLVideoElement>(null)
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const productId = searchParams.get('item');
+  const containerRef = useRef<HTMLDivElement>(null);
+  const supabase = createClientComponentClient<Database>();
 
-  const startAR = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user" },
-      })
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        setIsARActive(true)
-        setCameraPermission(true)
+  useEffect(() => {
+    return () => {
+      if (window.arCleanup) {
+        window.arCleanup();
       }
-    } catch (error) {
-      console.error("Camera access denied:", error)
-      setCameraPermission(false)
+    };
+  }, []);
+
+  const handleStopTryOn = () => {
+    if (window.arCleanup) {
+      window.arCleanup();
     }
-  }
-
-  const stopAR = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream
-      stream.getTracks().forEach((track) => track.stop())
-      videoRef.current.srcObject = null
-    }
-    setIsARActive(false)
-  }
-
-  const handleSaveItem = (itemId: number) => {
-    console.log("Saving item:", itemId)
-  }
-
-  const handleBuyNow = (itemId: number) => {
-    window.location.href = `/messages?item=${itemId}&action=buy`
-  }
+    router.back();
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <SiteHeader />
+    <>
+      {/* Import Maps for Three.js + MindAR Face */}
+      <Script id="import-maps" type="importmap">
+        {`
+          {
+            "imports": {
+              "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+              "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+              "mindar-face-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-face-three.prod.js"
+            }
+          }
+        `}
+      </Script>
 
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="container py-4">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/listings">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Listings
-              </Link>
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Virtual Try-On</h1>
-              <p className="text-gray-600">See how clothes look on you before buying</p>
+      {/* MindAR App Script */}
+      <Script type="module">
+        {`
+          import * as THREE from 'three';
+          import { MindARThree } from 'mindar-face-three';
+          import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+          async function initAR() {
+            try {
+              // Get the product ID
+              const productId = new URLSearchParams(window.location.search).get('item');
+              if (!productId) throw new Error('Product ID is required');
+
+              // Fetch the listing data
+              const response = await fetch('/api/listings/' + productId);
+              const data = await response.json();
+              if (!data.model_3d) throw new Error('3D model not available');
+
+              // Initialize MindAR
+              const mindarThree = new MindARThree({
+                container: document.querySelector('#ar-container'),
+              });
+
+              const { renderer, scene, camera } = mindarThree;
+
+              // Create lights
+              const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+              scene.add(ambientLight);
+
+              const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+              directionalLight.position.set(0, 1, 0);
+              scene.add(directionalLight);
+
+              // Load 3D model
+              const loader = new GLTFLoader();
+              
+              // Create a loading manager to handle loading events
+              const manager = new THREE.LoadingManager();
+              manager.onProgress = function(url, itemsLoaded, itemsTotal) {
+                const progress = (itemsLoaded / itemsTotal * 100).toFixed(0);
+                document.querySelector('#loading-progress').textContent = progress + '%';
+              };
+              
+              loader.setManager(manager);
+
+              try {
+                const gltf = await loader.loadAsync(data.model_3d);
+                const model = gltf.scene;
+
+                // Add model to scene
+                scene.add(model);
+
+                // Position the model
+                model.position.set(0, 0, -0.5);
+                model.scale.set(0.1, 0.1, 0.1);
+
+                // Hide loading screen
+                document.querySelector('#loading-screen').style.display = 'none';
+
+                // Start AR
+                await mindarThree.start();
+
+                // Set up cleanup
+                window.arCleanup = async () => {
+                  await mindarThree.stop();
+                  renderer.dispose();
+                };
+
+              } catch (modelError) {
+                throw new Error('Failed to load 3D model: ' + modelError.message);
+              }
+
+            } catch (error) {
+              console.error('AR initialization error:', error);
+              document.querySelector('#error-message').textContent = 
+                error instanceof Error ? error.message : 'Failed to initialize AR';
+              document.querySelector('#error-container').style.display = 'flex';
+              document.querySelector('#loading-screen').style.display = 'none';
+            }
+          }
+
+          // Start AR initialization
+          document.querySelector('#loading-screen').style.display = 'flex';
+          initAR();
+        `}
+      </Script>
+
+      <div className="relative h-screen">
+        <div id="ar-container" ref={containerRef} className="h-full w-full" />
+        
+        {/* Loading Screen */}
+        <div id="loading-screen" className="hidden fixed inset-0 bg-black/80 items-center justify-center z-50">
+          <div className="text-center text-white">
+            <div className="mb-4">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
+            </div>
+            <h3 className="text-lg font-semibold mb-2">Loading 3D Model</h3>
+            <p id="loading-progress" className="text-sm text-primary">0%</p>
+          </div>
+        </div>
+
+        {/* Error Display */}
+        <div id="error-container" className="hidden fixed inset-0 bg-black/50 items-center justify-center">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full m-4">
+            <div className="text-center">
+              <div className="text-lg text-red-600 mb-4" id="error-message"></div>
+              <button
+                onClick={handleStopTryOn}
+                className="px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700"
+              >
+                Go Back
+              </button>
             </div>
           </div>
         </div>
+
+        {/* Stop Button */}
+        <button
+          onClick={handleStopTryOn}
+          className="absolute top-4 right-4 px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700"
+        >
+          Stop Try-On
+        </button>
       </div>
-
-      <div className="container py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* AR Camera View */}
-          <div className="lg:col-span-2">
-            <Card className="overflow-hidden">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-purple-600" />
-                    AR Try-On Experience
-                  </CardTitle>
-                  <Badge className="bg-purple-100 text-purple-800">
-                    <Zap className="h-3 w-3 mr-1" />
-                    AI Powered
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="relative aspect-[4/3] bg-gray-900 flex items-center justify-center">
-                  {isARActive ? (
-                    <>
-                      <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-                      {/* AR Overlay */}
-                      <div className="absolute inset-0 pointer-events-none">
-                        {/* Virtual clothing overlay would go here */}
-                        <div className="absolute top-4 left-4 bg-black/50 text-white px-3 py-1 rounded-full text-sm">
-                          Trying on: {selectedItem.title}
-                        </div>
-                        <div className="absolute bottom-4 right-4 bg-green-500 text-white px-3 py-1 rounded-full text-sm">
-                          AR Active
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-center text-white">
-                      <Camera className="h-16 w-16 mx-auto mb-4 text-gray-400" />
-                      <h3 className="text-xl font-semibold mb-2">Start Your Virtual Try-On</h3>
-                      <p className="text-gray-400 mb-6">Allow camera access to see how clothes look on you</p>
-                      {cameraPermission === false && (
-                        <div className="bg-red-500/20 border border-red-500 rounded-lg p-4 mb-4">
-                          <p className="text-red-200 text-sm">
-                            Camera access is required for virtual try-on. Please enable camera permissions.
-                          </p>
-                        </div>
-                      )}
-                      <Button onClick={startAR} className="bg-purple-600 hover:bg-purple-700 text-white">
-                        <Camera className="h-4 w-4 mr-2" />
-                        Start AR Try-On
-                      </Button>
-                    </div>
-                  )}
-                </div>
-
-                {/* AR Controls */}
-                {isARActive && (
-                  <div className="p-4 bg-gray-50 border-t">
-                    <div className="flex items-center justify-center gap-4">
-                      <Button variant="outline" size="sm">
-                        <RotateCcw className="h-4 w-4 mr-2" />
-                        Reset
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        <Download className="h-4 w-4 mr-2" />
-                        Save Photo
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        <Share2 className="h-4 w-4 mr-2" />
-                        Share
-                      </Button>
-                      <Button
-                        onClick={stopAR}
-                        variant="outline"
-                        size="sm"
-                        className="text-red-600 border-red-200 hover:bg-red-50 bg-transparent"
-                      >
-                        Stop AR
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Selected Item Details */}
-            <Card className="mt-6">
-              <CardContent className="p-6">
-                <div className="flex gap-4">
-                  <Image
-                    src={selectedItem.image || "/placeholder.svg"}
-                    alt={selectedItem.title}
-                    width={80}
-                    height={80}
-                    className="rounded-lg object-cover"
-                  />
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900 mb-1">{selectedItem.title}</h3>
-                    <p className="text-gray-600 mb-2">{selectedItem.brand}</p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-2xl font-bold text-green-600">${selectedItem.price}</span>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => handleSaveItem(selectedItem.id)}>
-                          Save
-                        </Button>
-                        <Button
-                          size="sm"
-                          className="bg-green-600 hover:bg-green-700"
-                          onClick={() => handleBuyNow(selectedItem.id)}
-                        >
-                          Buy Now
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Item Selection */}
-          <div className="space-y-6">
-            {/* Available Items */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Try These Items</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {tryOnItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
-                        selectedItem.id === item.id
-                          ? "bg-purple-50 border-2 border-purple-200"
-                          : "bg-gray-50 hover:bg-gray-100"
-                      }`}
-                      onClick={() => setSelectedItem(item)}
-                    >
-                      <Image
-                        src={item.image || "/placeholder.svg"}
-                        alt={item.title}
-                        width={50}
-                        height={50}
-                        className="rounded-lg object-cover"
-                      />
-                      <div className="flex-1">
-                        <h4 className="font-medium text-gray-900 text-sm">{item.title}</h4>
-                        <p className="text-xs text-gray-600">{item.brand}</p>
-                        <p className="text-sm font-semibold text-green-600">${item.price}</p>
-                      </div>
-                      {selectedItem.id === item.id && <div className="w-2 h-2 bg-purple-600 rounded-full"></div>}
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* How it Works */}
-            <Card>
-              <CardHeader>
-                <CardTitle>How AR Try-On Works</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4 text-sm">
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <span className="text-purple-600 font-bold text-xs">1</span>
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-1">Allow Camera Access</h4>
-                      <p className="text-gray-600">Enable your camera to start the AR experience</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <span className="text-purple-600 font-bold text-xs">2</span>
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-1">Select Items</h4>
-                      <p className="text-gray-600">Choose from available items to try them on virtually</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <span className="text-purple-600 font-bold text-xs">3</span>
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-1">See the Fit</h4>
-                      <p className="text-gray-600">View how clothes look and fit on your body</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <span className="text-purple-600 font-bold text-xs">4</span>
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-1">Make Your Decision</h4>
-                      <p className="text-gray-600">Save photos and purchase with confidence</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
-
-      <SiteFooter />
-    </div>
-  )
+    </>
+  );
 }

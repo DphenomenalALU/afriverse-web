@@ -18,7 +18,7 @@ export default function SiteFooter() {
               />
             </div>
             <p className="text-sm md:text-base text-gray-600 leading-relaxed mb-6 md:mb-8">
-              Sustainable fashion marketplace connecting conscious consumers with quality pre-loved pieces.
+              Sustainable fashion marketplace connecting eco-conscious consumers with quality pre-loved pieces.
             </p>
             <div className="flex space-x-4 md:space-x-6">
               <Link href="#" className="text-gray-600 hover:text-green-600 transition-colors">

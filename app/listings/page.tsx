@@ -1,7 +1,12 @@
 "use client"
 
-import { useState } from "react"
-import { Search, Filter, Grid3X3, List, Bookmark, MessageCircle, Camera, MapPin, Clock, Star, X } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Search, Filter, Grid3X3, List, Bookmark, MessageCircle, Camera, MapPin, Clock, Star, Loader2, ShoppingBag } from "lucide-react"
+import { useRouter, useSearchParams, usePathname } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
+import { useListings } from "@/hooks/use-listings"
+import { useToast } from "@/hooks/use-toast"
+import { useCart } from "@/hooks/use-cart"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,221 +14,338 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Slider } from "@/components/ui/slider"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Separator } from "@/components/ui/separator"
+import ImageWithFallback from "@/components/ui/image-with-fallback"
 import SiteHeader from "@/components/site-header"
 import SiteFooter from "@/components/site-footer"
-import ImageWithFallback from "@/components/ui/image-with-fallback"
 
-// Mock data for listings
-const mockListings = [
-  {
-    id: 1,
-    title: "Vintage Levi's Denim Jacket",
-    brand: "Levi's",
-    price: 45,
-    originalPrice: 120,
-    condition: "Excellent",
-    size: "M",
-    seller: "Sarah M.",
-    location: "Lagos, Nigeria",
-    images: ["/placeholder.svg?height=400&width=400"],
-    rating: 4.8,
-    reviews: 23,
-    postedTime: "2 hours ago",
-    category: "jackets",
-    tags: ["vintage", "denim", "classic"],
-    tryOnAvailable: true,
-  },
-  {
-    id: 2,
-    title: "Floral Summer Dress",
-    brand: "Zara",
-    price: 25,
-    originalPrice: 65,
-    condition: "Very Good",
-    size: "S",
-    seller: "Amara K.",
-    location: "Accra, Ghana",
-    images: ["/placeholder.svg?height=400&width=400"],
-    rating: 4.9,
-    reviews: 15,
-    postedTime: "5 hours ago",
-    category: "dresses",
-    tags: ["floral", "summer", "casual"],
-    tryOnAvailable: true,
-  },
-  {
-    id: 3,
-    title: "Designer Silk Scarf",
-    brand: "Hermès",
-    price: 180,
-    originalPrice: 350,
-    condition: "Like New",
-    size: "One Size",
-    seller: "Fatima A.",
-    location: "Cairo, Egypt",
-    images: ["/placeholder.svg?height=400&width=400"],
-    rating: 5.0,
-    reviews: 8,
-    postedTime: "1 day ago",
-    category: "accessories",
-    tags: ["luxury", "silk", "designer"],
-    tryOnAvailable: false,
-  },
-  {
-    id: 4,
-    title: "Leather Ankle Boots",
-    brand: "Dr. Martens",
-    price: 85,
-    originalPrice: 160,
-    condition: "Good",
-    size: "8",
-    seller: "Kemi O.",
-    location: "Nairobi, Kenya",
-    images: ["/placeholder.svg?height=400&width=400"],
-    rating: 4.7,
-    reviews: 31,
-    postedTime: "3 days ago",
-    category: "shoes",
-    tags: ["leather", "boots", "classic"],
-    tryOnAvailable: true,
-  },
-  {
-    id: 5,
-    title: "Cashmere Sweater",
-    brand: "Uniqlo",
-    price: 35,
-    originalPrice: 80,
-    condition: "Excellent",
-    size: "L",
-    seller: "Aisha B.",
-    location: "Marrakech, Morocco",
-    images: ["/placeholder.svg?height=400&width=400"],
-    rating: 4.6,
-    reviews: 12,
-    postedTime: "1 week ago",
-    category: "sweaters",
-    tags: ["cashmere", "warm", "luxury"],
-    tryOnAvailable: true,
-  },
-  {
-    id: 6,
-    title: "High-Waist Jeans",
-    brand: "Citizens of Humanity",
-    price: 55,
-    originalPrice: 140,
-    condition: "Very Good",
-    size: "29",
-    seller: "Zara M.",
-    location: "Cape Town, South Africa",
-    images: ["/placeholder.svg?height=400&width=400"],
-    rating: 4.8,
-    reviews: 19,
-    postedTime: "2 weeks ago",
-    category: "jeans",
-    tags: ["high-waist", "denim", "sustainable"],
-    tryOnAvailable: true,
-  },
+const categories = [
+  "Dresses",
+  "Tops & Blouses",
+  "Pants & Jeans",
+  "Skirts",
+  "Jackets & Coats",
+  "Shoes",
+  "Bags & Accessories",
+  "Jewelry",
 ]
 
-const categories = ["All Categories", "Dresses", "Tops", "Bottoms", "Jackets", "Shoes", "Accessories", "Bags"]
-
-const conditions = ["Like New", "Excellent", "Very Good", "Good", "Fair"]
+const styles = ["Minimalist", "Vintage", "Bohemian", "Professional", "Streetwear", "Romantic"]
 
 const sizes = ["XS", "S", "M", "L", "XL", "XXL"]
 
-export default function ListingsPage() {
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
-  const [showFilters, setShowFilters] = useState(false)
-  const [priceRange, setPriceRange] = useState([0, 500])
+const conditions = [
+  { value: "new", label: "New with tags", description: "Brand new, never worn" },
+  { value: "like-new", label: "Like new", description: "Worn once or twice, excellent condition" },
+  { value: "excellent", label: "Excellent", description: "Gently used, no visible wear" },
+  { value: "good", label: "Good", description: "Some signs of wear, still in great shape" },
+  { value: "fair", label: "Fair", description: "Noticeable wear but still wearable" },
+]
+
+// Add formatTimeAgo function
+function formatTimeAgo(date: Date): string {
+  const now = new Date()
+  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+  const minutes = Math.floor(seconds / 60)
+  const hours = Math.floor(minutes / 60)
+  const days = Math.floor(hours / 24)
+  const weeks = Math.floor(days / 7)
+  const months = Math.floor(days / 30)
+  const years = Math.floor(days / 365)
+
+  if (years > 0) return `${years} ${years === 1 ? 'year' : 'years'} ago`
+  if (months > 0) return `${months} ${months === 1 ? 'month' : 'months'} ago`
+  if (weeks > 0) return `${weeks} ${weeks === 1 ? 'week' : 'weeks'} ago`
+  if (days > 0) return `${days} ${days === 1 ? 'day' : 'days'} ago`
+  if (hours > 0) return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`
+  if (minutes > 0) return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`
+  return 'just now'
+}
+
+interface PageProps {
+  searchParams?: { [key: string]: string | string[] | undefined }
+  params?: { [key: string]: string | string[] | boolean | undefined }
+}
+
+export default function ListingsPage({ searchParams, params }: PageProps) {
+  const router = useRouter()
+  const searchParamsObj = useSearchParams()
+  const { toast } = useToast()
+  const supabase = createClient()
+  const [searchQuery, setSearchQuery] = useState(() => searchParamsObj.get('q') || "")
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000])
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [selectedConditions, setSelectedConditions] = useState<string[]>([])
   const [selectedSizes, setSelectedSizes] = useState<string[]>([])
-  const [searchQuery, setSearchQuery] = useState("")
-  const [sortBy, setSortBy] = useState("newest")
+  const [selectedStyles, setSelectedStyles] = useState<string[]>([])
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
+  const [savingStates, setSavingStates] = useState<Record<string, boolean>>({})
+  const [savedStates, setSavedStates] = useState<Record<string, boolean>>({})
+  const { cartItems, addToCart, removeFromCart, isItemSaved } = useCart()
+  const pathname = usePathname()
 
-  const handleSaveItem = (itemId: number) => {
-    console.log("Saving item:", itemId)
+  useEffect(() => {
+    const styles = searchParamsObj.get("styles")
+    const sizes = searchParamsObj.get("sizes")
+    const maxPrice = searchParamsObj.get("maxPrice")
+
+    if (styles) {
+      setSelectedStyles(styles.split(",").map((s) => s.charAt(0).toUpperCase() + s.slice(1)))
+    }
+    if (sizes) {
+      setSelectedSizes(sizes.split(","))
+    }
+    if (maxPrice) {
+      setPriceRange([0, parseInt(maxPrice)])
+    }
+  }, [searchParamsObj])
+
+  const handleClearFilters = () => {
+    setPriceRange([0, 1000])
+    setSelectedCategories([])
+    setSelectedConditions([])
+    setSelectedSizes([])
+    setSelectedStyles([])
+    router.push(pathname)
   }
 
-  const handleBuyNow = (itemId: number) => {
-    window.location.href = `/messages?item=${itemId}&action=buy`
+  const { listings, isLoading, error } = useListings({
+    searchQuery,
+    priceRange,
+    categories: selectedCategories,
+    conditions: selectedConditions,
+    sizes: selectedSizes,
+    styles: selectedStyles,
+  })
+
+  // Load initial saved states
+  useEffect(() => {
+    if (listings) {
+      listings.forEach(async (item) => {
+        const saved = await isItemSaved(item.id)
+        setSavedStates(prev => ({ ...prev, [item.id]: saved }))
+      })
+    }
+  }, [listings])
+
+  // Handle URL search query
+  useEffect(() => {
+    const query = searchParamsObj.get('q')
+    if (query) {
+      setSearchQuery(query)
+    }
+  }, [searchParamsObj])
+
+  // Focus search input on search page
+  useEffect(() => {
+    if (params?.isSearchPage) {
+      const searchInput = document.querySelector('input[type="search"]') as HTMLInputElement
+      if (searchInput) {
+        searchInput.focus()
+      }
+    }
+  }, [params?.isSearchPage])
+
+  // Update URL when search query changes
+  useEffect(() => {
+    if (searchQuery) {
+      const newUrl = `${params?.isSearchPage ? '/search' : '/listings'}?q=${encodeURIComponent(searchQuery)}`
+      router.push(newUrl, { scroll: false })
+    } else if (searchParamsObj.has('q')) {
+      const newUrl = params?.isSearchPage ? '/search' : '/listings'
+      router.push(newUrl, { scroll: false })
+    }
+  }, [searchQuery, params?.isSearchPage])
+
+  // Helper function to get condition label
+  const getConditionLabel = (value: string) => {
+    return conditions.find(c => c.value === value)?.label || value
   }
 
-  const handleTryOn = (itemId: number) => {
-    window.location.href = `/try-on?item=${itemId}`
+  const handleAddToCart = async (listing: any) => {
+    try {
+      const saved = await isItemSaved(listing.id)
+      if (saved) {
+        // Optimistically update UI
+        setSavedStates(prev => ({ ...prev, [listing.id]: false }))
+        
+        const result = await removeFromCart(listing.id)
+        if (!result.success) {
+          // Revert UI if operation fails
+          setSavedStates(prev => ({ ...prev, [listing.id]: true }))
+          toast({
+            title: "Error removing item",
+            description: "Please try again",
+            variant: "destructive",
+          })
+        }
+      } else {
+        // Optimistically update UI
+        setSavedStates(prev => ({ ...prev, [listing.id]: true }))
+        
+        const result = await addToCart(listing)
+        if (!result.success) {
+          // Revert UI if operation fails
+          setSavedStates(prev => ({ ...prev, [listing.id]: false }))
+          toast({
+            title: "Error saving item",
+            description: "Please try again",
+            variant: "destructive",
+          })
+        }
+      }
+    } catch (error) {
+      console.error("Error toggling cart item:", error)
+      toast({
+        title: "Error",
+        description: "Something went wrong",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleMessage = async (listingId: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (!session) {
+        toast({
+          title: "Sign in required",
+          description: "Please sign in to make purchases.",
+        })
+        router.push('/auth/login')
+        return
+      }
+
+      // Get listing details
+      const { data: listing, error: listingError } = await supabase
+        .from('listings')
+        .select('user_id')
+        .eq('id', listingId)
+        .single()
+
+      if (listingError) throw listingError
+
+      // Check if user is trying to buy their own listing
+      if (listing.user_id === session.user.id) {
+        toast({
+          title: "Cannot buy your own listing",
+          description: "You cannot purchase items you've listed.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Redirect to checkout
+      router.push(`/checkout?listing_id=${listingId}`)
+    } catch (error) {
+      console.error('Error:', error)
+      toast({
+        title: "Error",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <SiteHeader />
+        <div className="container py-8">
+          <div className="max-w-4xl mx-auto text-center">
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Error loading listings</h2>
+            <p className="text-gray-600 mb-6">Please try again later.</p>
+            <Button onClick={() => window.location.reload()}>
+              Refresh Page
+            </Button>
+          </div>
+        </div>
+        <SiteFooter />
+      </div>
+    )
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <SiteHeader />
 
-      <div className="container py-4 md:py-8 px-4">
-        {/* Header */}
-        <div className="mb-6 md:mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Shop Sustainable Fashion</h1>
-          <p className="text-gray-600">Discover pre-loved pieces from conscious sellers worldwide</p>
-        </div>
+      <div className="container py-8">
+        {/* Page Title */}
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">
+          {params?.isSearchPage ? "Search Results" : "Browse Listings"}
+        </h1>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 md:gap-8">
-          {/* Filters Sidebar - Mobile Overlay */}
-          {showFilters && (
-            <div className="fixed inset-0 z-50 lg:hidden">
-              <div className="absolute inset-0 bg-black/50" onClick={() => setShowFilters(false)}></div>
-              <div className="absolute right-0 top-0 h-full w-80 max-w-[90vw] bg-white overflow-y-auto">
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                      <Filter className="h-4 w-4" />
-                      Filters
-                    </h3>
-                    <Button variant="ghost" size="sm" onClick={() => setShowFilters(false)}>
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
+        {/* Search and Filters */}
+        <div className="flex flex-col md:flex-row gap-4 mb-8">
+          <div className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <Input
+                type="search"
+                placeholder={params?.isSearchPage ? "Search for items, brands, or styles..." : "Search listings..."}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
 
-                  {/* Mobile Filter Content */}
-                  <div className="space-y-6">
-                    {/* Search */}
-                    <div>
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <Input
-                          placeholder="Search items..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="pl-10"
-                        />
-                      </div>
-                    </div>
-
+          <div className="flex gap-2">
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" className="bg-white">
+                  <Filter className="h-4 w-4 mr-2" />
+                  Filters
+                </Button>
+              </SheetTrigger>
+              <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+                <SheetHeader>
+                  <SheetTitle>Filter Listings</SheetTitle>
+                </SheetHeader>
+                <div className="py-6 space-y-6 max-h-[calc(100vh-8rem)] overflow-y-auto">
                     {/* Price Range */}
                     <div>
-                      <h4 className="font-medium text-gray-900 mb-3">Price Range</h4>
-                      <Slider value={priceRange} onValueChange={setPriceRange} max={500} step={5} className="mb-2" />
+                    <h3 className="font-medium text-gray-900 mb-4">Price Range</h3>
+                    <Slider
+                      value={priceRange}
+                      onValueChange={(value) => setPriceRange(value as [number, number])}
+                      min={0}
+                      max={1000}
+                      step={10}
+                      className="mb-2"
+                    />
                       <div className="flex justify-between text-sm text-gray-600">
                         <span>${priceRange[0]}</span>
                         <span>${priceRange[1]}</span>
                       </div>
                     </div>
 
+                  <Separator />
+
                     {/* Categories */}
                     <div>
-                      <h4 className="font-medium text-gray-900 mb-3">Categories</h4>
+                    <h3 className="font-medium text-gray-900 mb-4">Categories</h3>
                       <div className="space-y-2">
-                        {categories.slice(1).map((category) => (
-                          <div key={category} className="flex items-center space-x-2">
+                      {categories.map((category) => (
+                        <div key={category} className="flex items-center">
                             <Checkbox
-                              id={category}
+                            id={`category-${category}`}
                               checked={selectedCategories.includes(category)}
                               onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setSelectedCategories([...selectedCategories, category])
-                                } else {
-                                  setSelectedCategories(selectedCategories.filter((c) => c !== category))
-                                }
+                              setSelectedCategories(
+                                checked
+                                  ? [...selectedCategories, category]
+                                  : selectedCategories.filter((c) => c !== category)
+                              )
                               }}
                             />
-                            <label htmlFor={category} className="text-sm text-gray-700 cursor-pointer">
+                          <label
+                            htmlFor={`category-${category}`}
+                            className="ml-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          >
                               {category}
                             </label>
                           </div>
@@ -231,280 +353,314 @@ export default function ListingsPage() {
                       </div>
                     </div>
 
-                    {/* Size */}
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-3">Size</h4>
-                      <div className="grid grid-cols-3 gap-2">
-                        {sizes.map((size) => (
-                          <Button
-                            key={size}
-                            variant={selectedSizes.includes(size) ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => {
-                              if (selectedSizes.includes(size)) {
-                                setSelectedSizes(selectedSizes.filter((s) => s !== size))
-                              } else {
-                                setSelectedSizes([...selectedSizes, size])
-                              }
+                  <Separator />
+
+                  {/* Styles */}
+                  <div>
+                    <h3 className="font-medium text-gray-900 mb-4">Styles</h3>
+                    <div className="space-y-2">
+                      {styles.map((style) => (
+                        <div key={style} className="flex items-center">
+                          <Checkbox
+                            id={`style-${style}`}
+                            checked={selectedStyles.includes(style)}
+                            onCheckedChange={(checked) => {
+                              setSelectedStyles(
+                                checked
+                                  ? [...selectedStyles, style]
+                                  : selectedStyles.filter((s) => s !== style),
+                              )
                             }}
-                            className="h-8"
+                          />
+                          <label
+                            htmlFor={`style-${style}`}
+                            className="ml-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          >
+                            {style}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Conditions */}
+                  <div>
+                    <h3 className="font-medium text-gray-900 mb-4">Condition</h3>
+                    <div className="space-y-2">
+                      {conditions.map((condition) => (
+                        <div key={condition.value} className="flex items-center">
+                          <Checkbox
+                            id={`condition-${condition.value}`}
+                            checked={selectedConditions.includes(condition.value)}
+                            onCheckedChange={(checked) => {
+                              setSelectedConditions(
+                                checked
+                                  ? [...selectedConditions, condition.value]
+                                  : selectedConditions.filter((c) => c !== condition.value)
+                              )
+                            }}
+                          />
+                          <div className="ml-2">
+                            <label
+                              htmlFor={`condition-${condition.value}`}
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            >
+                              {condition.label}
+                            </label>
+                            <p className="text-xs text-gray-500 mt-1">{condition.description}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Sizes */}
+                    <div>
+                    <h3 className="font-medium text-gray-900 mb-4">Size</h3>
+                    <div className="space-y-2">
+                        {sizes.map((size) => (
+                        <div key={size} className="flex items-center">
+                          <Checkbox
+                            id={`size-${size}`}
+                            checked={selectedSizes.includes(size)}
+                            onCheckedChange={(checked) => {
+                              setSelectedSizes(
+                                checked
+                                  ? [...selectedSizes, size]
+                                  : selectedSizes.filter((s) => s !== size)
+                              )
+                            }}
+                          />
+                          <label
+                            htmlFor={`size-${size}`}
+                            className="ml-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                           >
                             {size}
-                          </Button>
+                          </label>
+                        </div>
                         ))}
-                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
+              </SheetContent>
+            </Sheet>
 
-          {/* Desktop Filters Sidebar */}
-          <div className="hidden lg:block lg:col-span-1">
-            <Card className="sticky top-24">
-              <CardContent className="p-6">
-                <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <Filter className="h-4 w-4" />
-                  Filters
-                </h3>
-
-                {/* Search */}
-                <div className="mb-6">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      placeholder="Search items..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10"
-                    />
+            <Button
+              variant="outline"
+              className="bg-white"
+              onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
+            >
+              {viewMode === "grid" ? (
+                <List className="h-4 w-4" />
+              ) : (
+                <Grid3X3 className="h-4 w-4" />
+              )}
+            </Button>
                   </div>
                 </div>
 
-                {/* Price Range */}
-                <div className="mb-6">
-                  <h4 className="font-medium text-gray-900 mb-3">Price Range</h4>
-                  <Slider value={priceRange} onValueChange={setPriceRange} max={500} step={5} className="mb-2" />
-                  <div className="flex justify-between text-sm text-gray-600">
-                    <span>${priceRange[0]}</span>
-                    <span>${priceRange[1]}</span>
-                  </div>
-                </div>
-
-                {/* Categories */}
-                <div className="mb-6">
-                  <h4 className="font-medium text-gray-900 mb-3">Categories</h4>
-                  <div className="space-y-2">
-                    {categories.slice(1).map((category) => (
-                      <div key={category} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={category}
-                          checked={selectedCategories.includes(category)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setSelectedCategories([...selectedCategories, category])
-                            } else {
-                              setSelectedCategories(selectedCategories.filter((c) => c !== category))
-                            }
-                          }}
-                        />
-                        <label htmlFor={category} className="text-sm text-gray-700 cursor-pointer">
-                          {category}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Size */}
-                <div className="mb-6">
-                  <h4 className="font-medium text-gray-900 mb-3">Size</h4>
-                  <div className="grid grid-cols-3 gap-2">
-                    {sizes.map((size) => (
+        {/* Active Filters */}
+        {(selectedCategories.length > 0 ||
+          selectedConditions.length > 0 ||
+          selectedSizes.length > 0 ||
+          priceRange[0] > 0 ||
+          priceRange[1] < 1000) && (
+          <div className="flex flex-wrap gap-2 mb-6">
+            {selectedCategories.map((category) => (
+              <Badge
+                key={category}
+                variant="secondary"
+                className="cursor-pointer"
+                onClick={() => setSelectedCategories(selectedCategories.filter((c) => c !== category))}
+              >
+                {category} ×
+              </Badge>
+            ))}
+            {selectedConditions.map((condition) => (
+              <Badge
+                key={condition}
+                variant="secondary"
+                className="cursor-pointer"
+                onClick={() => setSelectedConditions(selectedConditions.filter((c) => c !== condition))}
+              >
+                {getConditionLabel(condition)} ×
+              </Badge>
+            ))}
+            {selectedSizes.map((size) => (
+              <Badge
+                key={size}
+                variant="secondary"
+                className="cursor-pointer"
+                onClick={() => setSelectedSizes(selectedSizes.filter((s) => s !== size))}
+              >
+                {size} ×
+              </Badge>
+            ))}
+            {(priceRange[0] > 0 || priceRange[1] < 1000) && (
+              <Badge
+                variant="secondary"
+                className="cursor-pointer"
+                onClick={() => setPriceRange([0, 1000])}
+              >
+                ${priceRange[0]} - ${priceRange[1]} ×
+              </Badge>
+            )}
                       <Button
-                        key={size}
-                        variant={selectedSizes.includes(size) ? "default" : "outline"}
+              variant="ghost"
                         size="sm"
-                        onClick={() => {
-                          if (selectedSizes.includes(size)) {
-                            setSelectedSizes(selectedSizes.filter((s) => s !== size))
-                          } else {
-                            setSelectedSizes([...selectedSizes, size])
-                          }
-                        }}
-                        className="h-8"
-                      >
-                        {size}
+                        onClick={handleClearFilters}
+            >
+              Clear all
                       </Button>
-                    ))}
+          </div>
+        )}
+
+        {/* Listings Grid/List */}
+        <div
+          className={
+            viewMode === "grid"
+              ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6"
+              : "space-y-4"
+          }
+        >
+          {isLoading && listings.length === 0 ? (
+            // Only show skeleton if we don't have any listings yet
+            Array.from({ length: 8 }).map((_, i) => (
+              <Card key={i} className="overflow-hidden">
+                <CardContent className="p-0">
+                  <div className="animate-pulse">
+                    <div className="h-64 bg-gray-200" />
+                    <div className="p-4 space-y-3">
+                      <div className="h-4 bg-gray-200 rounded w-3/4" />
+                      <div className="h-4 bg-gray-200 rounded w-1/2" />
+                      <div className="h-4 bg-gray-200 rounded w-1/4" />
                   </div>
                 </div>
               </CardContent>
             </Card>
-          </div>
-
-          {/* Main Content */}
-          <div className="lg:col-span-3">
-            {/* Toolbar */}
-            <div className="flex items-center justify-between mb-6 gap-4">
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-gray-600">{mockListings.length} items found</span>
-                <Button variant="outline" size="sm" onClick={() => setShowFilters(true)} className="lg:hidden">
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filters
+            ))
+          ) : listings.length === 0 ? (
+            <div className="col-span-full text-center py-12">
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">No listings found</h2>
+              <p className="text-gray-600 mb-6">Try adjusting your filters or search terms</p>
+              <Button
+                onClick={handleClearFilters}
+              >
+                Clear Filters
                 </Button>
               </div>
-
-              <div className="flex items-center gap-2 md:gap-4">
-                {/* Sort */}
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="text-xs md:text-sm border border-gray-300 rounded-md px-2 md:px-3 py-1.5 bg-white"
-                >
-                  <option value="newest">Newest First</option>
-                  <option value="price-low">Price: Low to High</option>
-                  <option value="price-high">Price: High to Low</option>
-                  <option value="rating">Highest Rated</option>
-                </select>
-
-                {/* View Toggle */}
-                <div className="hidden md:flex border border-gray-300 rounded-md">
-                  <Button
-                    variant={viewMode === "grid" ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setViewMode("grid")}
-                    className="rounded-r-none"
+          ) : (
+            listings.map((listing) => (
+              <Card key={listing.id} className="overflow-hidden">
+                <CardContent className={viewMode === "list" ? "p-4 flex gap-4" : "p-0"}>
+                  <div
+                    className={
+                      viewMode === "list"
+                        ? "relative w-40 h-40 flex-shrink-0"
+                        : "relative aspect-square overflow-hidden"
+                    }
                   >
-                    <Grid3X3 className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant={viewMode === "list" ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setViewMode("list")}
-                    className="rounded-l-none"
-                  >
-                    <List className="h-4 w-4" />
-                  </Button>
+                    <div className="absolute top-2 left-2 z-10">
+                      <Badge variant="secondary" className="bg-white/90 text-gray-900">
+                        {listing.condition}
+                      </Badge>
                 </div>
-              </div>
-            </div>
-
-            {/* Listings Grid */}
-            <div className="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
-              {mockListings.map((item) => (
-                <Card key={item.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                  <div className="relative">
-                    <ImageWithFallback
-                      src={item.images[0] || "/placeholder.svg"}
-                      alt={item.title}
-                      width={400}
-                      height={400}
-                      className="w-full h-48 md:h-64 object-cover"
-                      fallbackClassName="w-full h-48 md:h-64 rounded-t-lg"
-                    />
-
-                    {/* Condition Badge */}
-                    <Badge className="absolute top-3 left-3 bg-white text-gray-900 text-xs">{item.condition}</Badge>
-
-                    {/* Try-On Badge */}
-                    {item.tryOnAvailable && (
-                      <Badge className="absolute top-3 right-3 bg-purple-600 text-white text-xs">
+                    {listing.try_on_available && (
+                      <div className="absolute top-2 right-2 z-10">
+                        <Badge className="bg-purple-600 text-white">
                         <Camera className="h-3 w-3 mr-1" />
                         Try-On
                       </Badge>
+                      </div>
                     )}
+                    <ImageWithFallback
+                      src={listing.images?.[0] || '/placeholder.jpg'}
+                      alt={listing.title}
+                      width={viewMode === "list" ? 160 : 400}
+                      height={viewMode === "list" ? 160 : 400}
+                      className="object-cover w-full h-full"
+                    />
                   </div>
 
-                  <CardContent className="p-3 md:p-4">
-                    <div className="mb-3">
-                      <h3 className="font-semibold text-gray-900 mb-1 text-sm md:text-base line-clamp-1">
-                        {item.title}
-                      </h3>
-                      <p className="text-xs md:text-sm text-gray-600">
-                        {item.brand} • Size {item.size}
+                  <div className={viewMode === "list" ? "flex-1" : "p-4"}>
+                    <h3 className="font-medium text-gray-900 text-lg mb-1 truncate">{listing.title}</h3>
+                    <p className="text-gray-600">
+                      {listing.brand} • Size {listing.size}
                       </p>
-                    </div>
 
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-lg md:text-2xl font-bold text-green-600">${item.price}</span>
-                      <span className="text-xs md:text-sm text-gray-500 line-through">${item.originalPrice}</span>
-                      <Badge variant="secondary" className="text-xs">
-                        {Math.round((1 - item.price / item.originalPrice) * 100)}% off
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-xl font-bold text-green-600">${listing.price}</span>
+                      {listing.original_price && (
+                        <>
+                          <span className="text-gray-500 line-through">${listing.original_price}</span>
+                          <Badge variant="secondary">
+                            {Math.round((1 - listing.price / listing.original_price) * 100)}% off
                       </Badge>
-                    </div>
-
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="flex items-center gap-1">
-                        <Star className="h-3 w-3 md:h-4 md:w-4 fill-yellow-400 text-yellow-400" />
-                        <span className="text-xs md:text-sm font-medium">{item.rating}</span>
-                        <span className="text-xs md:text-sm text-gray-500">({item.reviews})</span>
-                      </div>
-                      <span className="text-gray-300">•</span>
-                      <div className="flex items-center gap-1 text-xs md:text-sm text-gray-600">
-                        <MapPin className="h-3 w-3" />
-                        <span className="truncate">{item.location}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 mb-4">
-                      <span className="text-xs md:text-sm text-gray-600">by {item.seller}</span>
-                      <span className="text-gray-300">•</span>
-                      <div className="flex items-center gap-1 text-xs md:text-sm text-gray-500">
-                        <Clock className="h-3 w-3" />
-                        {item.postedTime}
-                      </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="grid grid-cols-3 gap-1 md:gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleSaveItem(item.id)}
-                        className="text-xs p-2"
-                      >
-                        <Bookmark className="h-3 w-3 mr-1" />
-                        <span className="hidden sm:inline">Save</span>
-                      </Button>
-
-                      {item.tryOnAvailable ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleTryOn(item.id)}
-                          className="text-xs border-purple-200 text-purple-600 hover:bg-purple-50 p-2"
-                        >
-                          <Camera className="h-3 w-3 mr-1" />
-                          <span className="hidden sm:inline">Try</span>
-                        </Button>
-                      ) : (
-                        <div></div>
+                        </>
                       )}
+                    </div>
 
+                    <div className="flex items-center gap-3 mt-3 text-sm text-gray-600">
+                      <div className="flex items-center">
+                        <Star className="h-4 w-4 text-yellow-400 fill-yellow-400 mr-1" />
+                        <span>{(listing as any).profiles?.rating?.toFixed(1) || 'New'}</span>
+                      </div>
+                      <span className="text-gray-300">•</span>
+                      <div className="flex items-center">
+                        <MapPin className="h-4 w-4 mr-1" />
+                        {listing.location || 'Location not specified'}
+                      </div>
+                    </div>
+
+                    <div className="mt-2 text-sm text-gray-500">
+                      by {(listing as any).profiles?.name || 'Anonymous'} • {listing.created_at && formatTimeAgo(new Date(listing.created_at))}
+                    </div>
+
+                    <div className="mt-4 flex gap-2">
+                      <Button
+                        variant={savedStates[listing.id] ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handleAddToCart(listing)}
+                        className={`flex-1 ${
+                          savedStates[listing.id] 
+                            ? 'bg-black hover:bg-black/90 text-white' 
+                            : ''
+                        }`}
+                      >
+                        <Bookmark className={`h-4 w-4 mr-2 ${savedStates[listing.id] ? 'fill-current' : ''}`} />
+                        {savedStates[listing.id] ? 'Saved' : 'Save'}
+                      </Button>
+                      {listing.try_on_available && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => router.push(`/try-on?item=${listing.id}`)}
+                          className="flex-1 text-purple-600 border-purple-200 hover:bg-purple-50"
+                        >
+                          <Camera className="h-4 w-4 mr-2" />
+                          Try
+                        </Button>
+                      )}
                       <Button
                         size="sm"
-                        onClick={() => handleBuyNow(item.id)}
-                        className="text-xs bg-green-600 hover:bg-green-700 text-white p-2"
+                        onClick={() => handleMessage(listing.id)}
+                        className="flex-1 bg-green-600 hover:bg-green-700"
                       >
-                        <MessageCircle className="h-3 w-3 mr-1" />
-                        <span className="hidden sm:inline">Buy</span>
+                        <ShoppingBag className="h-4 w-4 mr-2" />
+                        Buy
                       </Button>
+                    </div>
                     </div>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
-
-            {/* Load More */}
-            <div className="mt-8 md:mt-12 text-center">
-              <Button variant="outline" size="lg">
-                Load More Items
-              </Button>
-            </div>
-          </div>
+            ))
+          )}
         </div>
+
       </div>
 
       <SiteFooter />
