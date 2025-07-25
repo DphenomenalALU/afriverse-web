@@ -18,6 +18,9 @@ const cormorant = Cormorant_Garamond({
 export const metadata = {
   title: " Afriverse | Look Good, Waste Less.",
   description: "Africa's premier sustainable fashion marketplace connecting eco-conscious shoppers with quality pre-loved pieces. Shop, sell, and make an impact across the continent.",
+  icons: {
+    icon: "/images/afriverse-favicon.png",
+  },
 }
 
 export default function RootLayout({
