@@ -17,6 +17,7 @@ Afriverse is a modern, sustainable fashion marketplace built with Next.js 13+, R
 
 ## Tech Stack
 
+### Core Technologies
 - **Framework**: Next.js 13+ (App Router)
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS
@@ -24,6 +25,23 @@ Afriverse is a modern, sustainable fashion marketplace built with Next.js 13+, R
 - **State Management**: React Hooks
 - **Animations**: Custom animations with CSS
 - **Icons**: Lucide Icons
+
+### Backend & Infrastructure
+- **Database & Auth**: Supabase (PostgreSQL + Auth)
+- **File Storage**: Supabase Storage
+- **API**: Next.js API Routes
+- **Email Service**: Resend for transactional emails
+
+### AI & Extended Reality
+- **3D Asset Generation**: TripoSR model via Replicate API
+- **Virtual Try-On**: MindAR for AR visualization
+
+### Development Tools
+- **Package Manager**: pnpm
+- **Code Quality**: TypeScript, ESLint
+- **Formatting**: Prettier
+- **Version Control**: Git
+- **CI/CD**: GitHub Actions
 
 ## Getting Started
 
