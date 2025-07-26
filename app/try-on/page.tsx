@@ -12,6 +12,7 @@ import type { Database } from '@/lib/supabase/types';
 declare global {
   interface MindARSystem {
     stop: () => void;
+    stopProcessVideo: () => void;
   }
 
   interface AFrameElement extends HTMLElement {
@@ -82,24 +83,147 @@ export default function TryOnPage() {
   const { toast } = useToast();
   const supabase = createClient();
   const [modelLoaded, setModelLoaded] = useState(false);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const [isPermissionBlocked, setIsPermissionBlocked] = useState(false);
+
+  // Function to check camera permission
+  const checkCameraPermission = async () => {
+    try {
+      // First check if permissions API is supported
+      if (navigator.permissions && navigator.permissions.query) {
+        const result = await navigator.permissions.query({ name: 'camera' as PermissionName });
+        
+        if (result.state === 'denied') {
+          setIsPermissionBlocked(true);
+          setHasCameraPermission(false);
+          return;
+        }
+      }
+
+      // Try to access the camera
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: 'user'
+        } 
+      });
+      
+      // If we get here, permission was granted
+      setHasCameraPermission(true);
+      setIsPermissionBlocked(false);
+      
+      // Stop the video stream since we don't need it yet
+      stream.getTracks().forEach(track => track.stop());
+    } catch (error: any) {
+      console.error('Camera permission error:', error);
+      // Check if permission is blocked by browser settings
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        setIsPermissionBlocked(true);
+      }
+      setHasCameraPermission(false);
+    }
+  };
+
+  // Function to request camera permission
+  const requestCameraPermission = async () => {
+    try {
+      // Try to access the camera with specific constraints
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: 'user'
+        } 
+      });
+
+      // If we get here, permission was granted
+      setHasCameraPermission(true);
+      setIsPermissionBlocked(false);
+      
+      // Stop the stream since we don't need it yet
+      stream.getTracks().forEach(track => track.stop());
+      
+      // Reload the page to reinitialize AR
+      window.location.reload();
+    } catch (error: any) {
+      console.error('Failed to get camera permission:', error);
+      
+      // Check if permission is blocked by browser settings
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        setIsPermissionBlocked(true);
+        toast({
+          title: "Camera Access Blocked",
+          description: "Please enable camera access in your browser settings to use the AR try-on feature.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Camera Access Error",
+          description: "There was an error accessing your camera. Please try again.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
 
   // Function to stop AR system
   const stopARSystem = () => {
-    const sceneEl = document.querySelector('a-scene') as AFrameElement;
-    const system = sceneEl?.systems?.['mindar-face-system'];
-    if (system) {
-      console.log('Stopping AR system and camera');
-      system.stop();
-      // Add a small delay to ensure the camera is fully stopped
-      return new Promise<void>((resolve) => setTimeout(resolve, 100));
+    try {
+      const sceneEl = document.querySelector('a-scene') as AFrameElement;
+      if (!sceneEl) return Promise.resolve();
+
+      const system = sceneEl?.systems?.['mindar-face-system'];
+      if (system && system.stopProcessVideo) {
+        console.log('Stopping AR system and camera');
+        system.stopProcessVideo();
+        
+        // Also try to stop any active video streams
+        const videoEl = document.querySelector('#mindar-face-video') as HTMLVideoElement;
+        if (videoEl && videoEl.srcObject) {
+          const stream = videoEl.srcObject as MediaStream;
+          stream.getTracks().forEach(track => {
+            track.stop();
+            console.log('Stopped video track:', track.label);
+          });
+          videoEl.srcObject = null;
+          videoEl.remove();
+        }
+
+        // Remove the scene to ensure complete cleanup
+        sceneEl.remove();
+
+        // Add a small delay to ensure the camera is fully stopped
+        return new Promise<void>((resolve) => setTimeout(resolve, 300));
+      }
+    } catch (error) {
+      console.error('Error stopping AR system:', error);
     }
     return Promise.resolve();
   };
 
   // Function to handle navigation with camera cleanup
   const handleNavigation = async (path: string) => {
-    await stopARSystem();
-    router.push(path);
+    try {
+      setIsLoading(true); // Show loading state while cleaning up
+      
+      // Stop AR system and camera
+      await stopARSystem();
+      
+      // Force cleanup of any remaining video tracks
+      const tracks = await navigator.mediaDevices.getUserMedia({ video: true });
+      tracks.getTracks().forEach(track => {
+        track.stop();
+        console.log('Forced stop of video track:', track.label);
+      });
+
+      // Use window.location for full page refresh to ensure complete cleanup
+      window.location.href = path;
+    } catch (error) {
+      console.error('Error during navigation cleanup:', error);
+      // Navigate anyway even if cleanup fails
+      window.location.href = path;
+    }
   };
 
   // Add a separate effect for handling beforeunload
@@ -117,6 +241,9 @@ export default function TryOnPage() {
 
   useEffect(() => {
     setIsMounted(true);
+
+    // Check camera permission when component mounts
+    checkCameraPermission();
     
     // Load product data
     const loadProduct = async () => {
@@ -170,8 +297,10 @@ export default function TryOnPage() {
       loadProduct();
     }
     
-    // Initialize MindAR functionality
+    // Only initialize MindAR if we have camera permission
     const initMindAR = () => {
+      if (!hasCameraPermission) return;
+
       const button = document.querySelector("#productThumbnail");
       const entities = document.querySelectorAll(".product-model-entity");
       let isVisible = true;
@@ -214,7 +343,7 @@ export default function TryOnPage() {
       }
     };
 
-    // Call initMindAR when the DOM is loaded
+    // Call initMindAR when the DOM is loaded and we have camera permission
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', initMindAR);
     } else {
@@ -226,11 +355,17 @@ export default function TryOnPage() {
       document.removeEventListener('DOMContentLoaded', initMindAR);
       stopARSystem();
     };
-  }, [productId]);
+  }, [productId, hasCameraPermission]);
 
   const handleStop = async () => {
-    await stopARSystem();
-    router.back();
+    try {
+      setIsLoading(true);
+      await stopARSystem();
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Error during stop:', error);
+      window.location.href = '/';
+    }
   };
 
   const handleAddToCart = async () => {
@@ -296,10 +431,12 @@ export default function TryOnPage() {
         return;
       }
 
-      // Redirect to checkout using listing_id parameter to match listings page
+      // Show loading state and stop camera before navigation
+      setIsLoading(true);
       await handleNavigation(`/checkout?listing_id=${productId}`);
     } catch (error) {
       console.error('Error:', error);
+      setIsLoading(false);
       toast({
         title: "Error",
         description: "Something went wrong. Please try again.",
@@ -311,6 +448,47 @@ export default function TryOnPage() {
   // Don't render anything on the server side
   if (!isMounted || !productData) {
     return null;
+  }
+
+  // Show camera permission request if permission is denied
+  if (hasCameraPermission === false) {
+    return (
+      <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+        <div className="bg-white p-8 rounded-lg max-w-md w-full mx-4">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Camera Access Required</h2>
+          <p className="text-gray-600 mb-6">
+            {isPermissionBlocked ? (
+              <>
+                Camera access is blocked. Please enable it in your browser settings:
+                <ul className="mt-2 list-disc list-inside">
+                  <li>Click the camera icon in your browser's address bar</li>
+                  <li>Select "Allow" for this site</li>
+                  <li>Refresh the page after enabling access</li>
+                </ul>
+              </>
+            ) : (
+              'To use the AR try-on feature, we need access to your camera. Please click the button below to enable camera access.'
+            )}
+          </p>
+          <div className="flex flex-col gap-3">
+            {!isPermissionBlocked && (
+              <button
+                onClick={requestCameraPermission}
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 px-4 rounded-lg font-medium transition-colors"
+              >
+                Enable Camera
+              </button>
+            )}
+            <button
+              onClick={() => router.back()}
+              className="w-full bg-gray-100 hover:bg-gray-200 text-gray-900 py-3 px-4 rounded-lg font-medium transition-colors"
+            >
+              Go Back
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

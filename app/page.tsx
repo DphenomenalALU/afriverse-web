@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button"
 import ListingsCarousel from "@/components/listings/listings-carousel"
 import SiteHeader from "@/components/site-header"
 import SiteFooter from "@/components/site-footer"
+import ARTryOnButton from "@/components/ar-try-on-button"
 
 export default function Home() {
   return (
@@ -211,13 +212,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <Button
-                asChild
-                size="lg"
-                className="bg-purple-600 hover:bg-purple-700 text-white px-6 md:px-8 py-4 md:py-6 text-base md:text-lg rounded-full"
-              >
-                <Link href="/try-on">Try AR Experience</Link>
-              </Button>
+              <ARTryOnButton />
             </div>
           </div>
         </section>
