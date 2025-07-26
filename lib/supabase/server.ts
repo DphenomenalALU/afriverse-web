@@ -30,4 +30,20 @@ export const createClient = () => {
       },
     }
   )
+}
+
+// Create a service role client that bypasses RLS
+export const createServiceClient = () => {
+  return createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      // No cookies needed for service role client
+      cookies: {
+        get(name: string) { return undefined },
+        set(name: string, value: string, options: any) {},
+        remove(name: string, options: any) {},
+      },
+    }
+  )
 } 
