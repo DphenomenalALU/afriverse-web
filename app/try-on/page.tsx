@@ -297,62 +297,89 @@ export default function TryOnPage() {
       loadProduct();
     }
     
+    // Wait for scripts to load before initializing MindAR
+    const waitForScripts = () => {
+      return new Promise((resolve) => {
+        const checkScripts = () => {
+          // @ts-ignore
+          if (window.AFRAME && window.MINDAR) {
+            resolve(true);
+          } else {
+            setTimeout(checkScripts, 100);
+          }
+        };
+        checkScripts();
+      });
+    };
+
     // Only initialize MindAR if we have camera permission
-    const initMindAR = () => {
+    const initMindAR = async () => {
       if (!hasCameraPermission) return;
 
-      const button = document.querySelector("#productThumbnail");
-      const entities = document.querySelectorAll(".product-model-entity");
-      let isVisible = true;
+      try {
+        // Wait for scripts to be loaded
+        await waitForScripts();
 
-      const setVisible = (button: HTMLElement, entities: NodeListOf<Element>, visible: boolean) => {
-        if (visible) {
-          button.classList.add("selected");
-        } else {
-          button.classList.remove("selected");
-        }
-        entities.forEach((entity) => {
-          entity.setAttribute("visible", visible.toString());
-        });
-      }
+        const button = document.querySelector("#productThumbnail");
+        const entities = document.querySelectorAll(".product-model-entity");
+        let isVisible = true;
 
-      if (button && entities) {
-        setVisible(button as HTMLElement, entities, isVisible);
-        button.addEventListener('click', () => {
-          isVisible = !isVisible;
-          setVisible(button as HTMLElement, entities, isVisible);
-        });
-      }
-
-      // Add event listeners for model loading
-      const modelAsset = document.querySelector('#productModel');
-      if (modelAsset) {
-        modelAsset.addEventListener('loaded', () => {
-          console.log('3D model loaded successfully');
-          setModelLoaded(true);
-        });
-        
-        modelAsset.addEventListener('error', (error) => {
-          console.error('Error loading 3D model:', error);
-          toast({
-            title: "Error loading 3D model",
-            description: "There was an error loading the 3D model. Please try again.",
-            variant: "destructive",
+        const setVisible = (button: HTMLElement, entities: NodeListOf<Element>, visible: boolean) => {
+          if (visible) {
+            button.classList.add("selected");
+          } else {
+            button.classList.remove("selected");
+          }
+          entities.forEach((entity) => {
+            entity.setAttribute("visible", visible.toString());
           });
+        }
+
+        if (button && entities) {
+          setVisible(button as HTMLElement, entities, isVisible);
+          button.addEventListener('click', () => {
+            isVisible = !isVisible;
+            setVisible(button as HTMLElement, entities, isVisible);
+          });
+        }
+
+        // Add event listeners for model loading
+        const modelAsset = document.querySelector('#productModel');
+        if (modelAsset) {
+          modelAsset.addEventListener('loaded', () => {
+            console.log('3D model loaded successfully');
+            setModelLoaded(true);
+          });
+          
+          modelAsset.addEventListener('error', (error) => {
+            console.error('Error loading 3D model:', error);
+            toast({
+              title: "Error loading 3D model",
+              description: "There was an error loading the 3D model. Please try again.",
+              variant: "destructive",
+            });
+          });
+        }
+      } catch (error) {
+        console.error('Error initializing MindAR:', error);
+        toast({
+          title: "Error initializing AR",
+          description: "There was an error starting the AR experience. Please try again.",
+          variant: "destructive",
         });
       }
     };
 
     // Call initMindAR when the DOM is loaded and we have camera permission
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initMindAR);
+      document.addEventListener('DOMContentLoaded', () => initMindAR());
     } else {
       initMindAR();
     }
 
     // Cleanup
     return () => {
-      document.removeEventListener('DOMContentLoaded', initMindAR);
+      document.removeEventListener('DOMContentLoaded', () => initMindAR());
       stopARSystem();
     };
   }, [productId, hasCameraPermission]);
