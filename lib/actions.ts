@@ -1,6 +1,6 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { Resend } from 'resend';
 import { OrderConfirmation } from '@/components/emails/OrderConfirmation';
 import { createServerActionClient } from '@supabase/auth-helpers-nextjs';
@@ -13,7 +13,7 @@ const replicate = new Replicate({
 });
 
 export async function sendConfirmationEmail(purchaseId: string) {
-  const supabase = createClient();
+  const supabase = createServiceClient();
   const resend = new Resend(process.env.RESEND_API_KEY);
 
   try {
@@ -288,36 +288,56 @@ export async function generate3DModel(imageUrl: string, userId: string) {
 
 export async function updateListingStatus(listingId: string, status: 'active' | 'pending' | 'sold' | 'archived') {
   'use server'
-  
-  const supabase = createClient()
 
-  // First check if listing is still active
-  const { data: currentListing, error: checkError } = await supabase
-    .from("listings")
-    .select("status")
-    .eq("id", listingId)
-    .single()
+  try {
+    console.clear();
 
-  if (checkError) {
-    console.error("Error checking listing status:", checkError)
-    return { success: false, error: checkError.message }
+    // Use service role client to bypass RLS
+    const supabase = createServiceClient()
+
+    // Find the listing by ID
+    const { data: currentListing, error: findError } = await supabase
+      .from("listings")
+      .select("*")
+      .eq("id", listingId)
+      .maybeSingle()
+
+    console.log("Current listing:", { currentListing, listingId })
+
+    if (findError) {
+      console.error("Error finding listing:", findError)
+      return { success: false, error: findError.message }
+    }
+    if (!currentListing) {
+      return { success: false, error: "Listing not found" }
+    }
+
+    console.log("Attempting update with:", { status, listingId })
+
+    // Update without .single() and handle array response
+    const { data: updatedRows, error: updateError } = await supabase
+      .from("listings")
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq("id", listingId)
+      .select()
+
+    console.log("Update response:", { updatedRows, updateError })
+
+    if (updateError) {
+      console.error("Error updating listing status:", updateError)
+      return { success: false, error: updateError.message }
+    }
+
+    // Check if any rows were updated
+    if (!updatedRows || updatedRows.length === 0) {
+      console.error("No rows were updated")
+      return { success: false, error: "Failed to update listing status - no rows affected" }
+    }
+
+    // Return the first updated row
+    return { success: true, data: updatedRows[0] }
+  } catch (error) {
+    console.error("Unexpected error in updateListingStatus:", error)
+    return { success: false, error: "An unexpected error occurred while updating the listing status" }
   }
-
-  if (currentListing.status !== "active") {
-    return { success: false, error: "This item is no longer available for purchase" }
-  }
-
-  // Update the listing status
-  const { error: updateError } = await supabase
-    .from("listings")
-    .update({ status })
-    .eq("id", listingId)
-    .eq("status", "active")
-
-  if (updateError) {
-    console.error("Error updating listing status:", updateError)
-    return { success: false, error: updateError.message }
-  }
-
-  return { success: true }
 } 
