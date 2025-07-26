@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { X, ShoppingBag, Heart, Star, MapPin } from 'lucide-react';
+import { X, ShoppingBag, Heart, Star, MapPin, ChevronDown } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useCart } from '@/hooks/use-cart';
 import { useToast } from '@/hooks/use-toast';
@@ -451,45 +451,45 @@ export default function TryOnPage() {
   }
 
   // Show camera permission request if permission is denied
-  if (hasCameraPermission === false) {
-    return (
-      <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-        <div className="bg-white p-8 rounded-lg max-w-md w-full mx-4">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Camera Access Required</h2>
-          <p className="text-gray-600 mb-6">
+  {hasCameraPermission === false && (
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+      <div className="bg-white p-6 rounded-2xl max-w-md w-full mx-auto shadow-xl">
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Camera Access Required</h2>
+          <p className="text-gray-600">
             {isPermissionBlocked ? (
               <>
                 Camera access is blocked. Please enable it in your browser settings:
-                <ul className="mt-2 list-disc list-inside">
-                  <li>Click the camera icon in your browser's address bar</li>
+                <ul className="mt-3 space-y-2 list-disc list-inside text-sm">
+                  <li>Tap the camera icon in your browser's address bar</li>
                   <li>Select "Allow" for this site</li>
                   <li>Refresh the page after enabling access</li>
                 </ul>
               </>
             ) : (
-              'To use the AR try-on feature, we need access to your camera. Please click the button below to enable camera access.'
+              'To use the AR try-on feature, we need access to your camera. Please tap the button below to enable camera access.'
             )}
           </p>
-          <div className="flex flex-col gap-3">
-            {!isPermissionBlocked && (
-              <button
-                onClick={requestCameraPermission}
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 px-4 rounded-lg font-medium transition-colors"
-              >
-                Enable Camera
-              </button>
-            )}
+        </div>
+        <div className="flex flex-col gap-3">
+          {!isPermissionBlocked && (
             <button
-              onClick={() => router.back()}
-              className="w-full bg-gray-100 hover:bg-gray-200 text-gray-900 py-3 px-4 rounded-lg font-medium transition-colors"
+              onClick={requestCameraPermission}
+              className="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white py-3.5 px-4 rounded-xl font-medium transition-colors"
             >
-              Go Back
+              Enable Camera
             </button>
-          </div>
+          )}
+          <button
+            onClick={() => router.back()}
+            className="w-full bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-900 py-3.5 px-4 rounded-xl font-medium transition-colors"
+          >
+            Go Back
+          </button>
         </div>
       </div>
-    );
-  }
+    </div>
+  )}
 
   return (
     <div className="try-on-container">
@@ -498,47 +498,68 @@ export default function TryOnPage() {
           width: 100vw;
           height: 100vh;
           position: relative;
-      margin: 0;
+          margin: 0;
+          overflow-y: auto;
+          -webkit-touch-callout: none;
+          -webkit-user-select: none;
+          user-select: none;
+          scroll-snap-type: y mandatory;
+          overscroll-behavior-y: contain;
+          background: transparent;
+        }
+        .example-container {
+          position: relative;
+          width: 100%;
+          height: 100vh;
+          scroll-snap-align: start;
+          scroll-snap-stop: always;
           overflow: hidden;
-      }
-      .example-container {
-        overflow: hidden;
-        position: absolute;
-        width: 100%;
-        height: 100%;
-      }
-      .options-panel {
-	position: fixed;
-	left: 0;
-	top: 0;
-	z-index: 2;
-      }
-      .options-panel img {
-	border: solid 2px;
-	width: 50px;
-	height: 50px;
-	object-fit: cover;
-	cursor: pointer;
-      }
-      .options-panel img.selected {
-	border-color: green;
-      }
+          background: transparent;
+        }
+        .options-panel {
+          position: fixed;
+          left: 1rem;
+          top: env(safe-area-inset-top, 1rem);
+          z-index: 2;
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+          padding: 0.5rem;
+          background: rgba(255, 255, 255, 0.9);
+          border-radius: 12px;
+          backdrop-filter: blur(8px);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .options-panel img {
+          border: solid 2px;
+          width: 48px;
+          height: 48px;
+          object-fit: cover;
+          cursor: pointer;
+          border-radius: 8px;
+          transition: all 0.2s ease;
+        }
+        .options-panel img.selected {
+          border-color: #22c55e;
+          transform: scale(1.05);
+        }
         .stop-button {
           position: fixed;
-          top: 1rem;
+          top: env(safe-area-inset-top, 1rem);
           right: 1rem;
           z-index: 10;
           background: rgba(255, 255, 255, 0.9);
           border: none;
           border-radius: 50%;
-          width: 40px;
-          height: 40px;
+          width: 48px;
+          height: 48px;
           display: flex;
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
           transition: all 0.2s ease;
+          backdrop-filter: blur(8px);
         }
         .stop-button:hover {
           background: white;
@@ -548,179 +569,230 @@ export default function TryOnPage() {
           transform: scale(0.95);
         }
         .product-panel {
-          position: fixed;
-          right: 0;
-          top: 0;
-          bottom: 0;
+          position: relative;
           width: 100%;
-          max-width: 400px;
           background: white;
           z-index: 9;
-          overflow-y: auto;
-          transform: translateX(100%);
-          transition: transform 0.3s ease;
+          scroll-snap-align: start;
         }
-        .product-panel.visible {
-          transform: translateX(0);
-        }
-        @media (max-width: 768px) {
+        @media (min-width: 769px) {
+          .try-on-container {
+            overflow: hidden;
+            scroll-snap-type: none;
+          }
           .product-panel {
-            top: auto;
-            height: 70vh;
-            width: 100%;
-            max-width: none;
-            transform: translateY(100%);
-            border-radius: 20px 20px 0 0;
+            position: fixed;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 400px;
+            transform: translateX(100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: -4px 0 12px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
           }
           .product-panel.visible {
-            transform: translateY(30%);
+            transform: translateX(0);
           }
-          .stop-button {
-            top: env(safe-area-inset-top, 1rem);
+        }
+        @media (max-width: 768px) {
+          .options-panel {
+            left: 1rem;
+            transform: none;
+            bottom: env(safe-area-inset-bottom, 20px);
+            top: auto;
+            flex-direction: row;
+            margin-bottom: 1rem;
+            z-index: 11;
+          }
+          .scroll-indicator {
+            position: fixed;
+            right: 1rem;
+            bottom: env(safe-area-inset-bottom, 20px);
+            z-index: 11;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 0.75rem;
+            border-radius: 50%;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(8px);
+            animation: bounce 2s infinite;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+              transform: translateY(0);
+            }
+            40% {
+              transform: translateY(-10px);
+            }
+            60% {
+              transform: translateY(-5px);
+            }
           }
         }
         a-scene {
           position: absolute;
           width: 100%;
           height: 100%;
+          touch-action: none;
+          -webkit-touch-callout: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: transparent !important;
         }
         #mindar-face-video {
-          width: 100% !important;
+          width: auto !important;
           height: 100% !important;
-          object-fit: cover !important;
+          max-width: 100% !important;
+          object-fit: contain !important;
           position: absolute !important;
-          top: 0 !important;
-          left: 0 !important;
+          top: 50% !important;
+          left: 50% !important;
+          transform: translate(-50%, -50%) !important;
           z-index: -1 !important;
+          background: transparent !important;
         }
       `}</style>
 
-      <div className="example-container">
-        <button className="stop-button" onClick={handleStop}>
-          <X size={24} />
-        </button>
-        <div className="options-panel">
-          <img 
-            id="productThumbnail" 
-            src={productData.images?.[0] || '/placeholder.jpg'}
-            alt={productData.title}
-          />
-      </div>
-        <a-scene 
-          mindar-face="maxDetectedFaces: 1"
-          embedded="true"
-          color-space="sRGB" 
-          renderer="colorManagement: true, physicallyCorrectLights" 
-          vr-mode-ui="enabled: false" 
-          device-orientation-permission-ui="enabled: false"
-        >
-        <a-assets>
-            <a-asset-item 
-              id="headModel" 
-              src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/face-tracking/assets/sparkar/headOccluder.glb"
-            ></a-asset-item>
-            <a-asset-item 
-              id="productModel" 
-              src={productData.model_3d}
-              crossorigin="anonymous"
-            ></a-asset-item>
-        </a-assets>
-
-        <a-camera active="false" position="0 0 0"></a-camera>
-
-          {/* head occluder */}
-        <a-entity mindar-face-target="anchorIndex: 168">
-            <a-gltf-model 
-              mindar-face-occluder 
-              position="0 -0.3 0.15" 
-              rotation="0 0 0" 
-              scale="0.065 0.065 0.065" 
-              src="#headModel"
-            ></a-gltf-model>
-        </a-entity>
-
-        <a-entity mindar-face-target="anchorIndex: 168">
-            <a-gltf-model 
-              rotation="0 -0 0" 
-              position="0 0 0" 
-              scale="0.007 0.007 0.007" 
-              src="#productModel" 
-              class="product-model-entity" 
-              visible="true"
-            ></a-gltf-model>
-        </a-entity>
-      </a-scene>
-
-        {/* Loading indicator */}
-        {isLoading && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-            <div className="text-center text-white">
-              <div className="mb-4">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500 mx-auto"></div>
-              </div>
-              <h3 className="text-lg font-semibold mb-2">Loading Try-On</h3>
-              <p className="text-sm text-green-500">Please allow camera access when prompted</p>
-            </div>
+      <div className="try-on-container">
+        <div className="example-container">
+          <button className="stop-button" onClick={handleStop}>
+            <X size={24} />
+          </button>
+          <div className="options-panel">
+            <img 
+              id="productThumbnail" 
+              src={productData.images?.[0] || '/placeholder.jpg'}
+              alt={productData.title}
+            />
           </div>
-        )}
+          
+          {/* Scroll indicator for mobile */}
+          <div className="scroll-indicator md:hidden">
+            <ChevronDown className="h-6 w-6 text-gray-700" />
+          </div>
+
+          {/* AR Scene */}
+          <a-scene 
+            mindar-face="maxDetectedFaces: 1"
+            embedded="true"
+            color-space="sRGB" 
+            renderer="colorManagement: true, physicallyCorrectLights" 
+            vr-mode-ui="enabled: false" 
+            device-orientation-permission-ui="enabled: false"
+            alpha="true"
+          >
+            <a-assets>
+              <a-asset-item 
+                id="headModel" 
+                src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/face-tracking/assets/sparkar/headOccluder.glb"
+              ></a-asset-item>
+              <a-asset-item 
+                id="productModel" 
+                src={productData.model_3d}
+                crossorigin="anonymous"
+              ></a-asset-item>
+            </a-assets>
+
+            <a-camera active="false" position="0 0 0"></a-camera>
+
+            {/* head occluder */}
+            <a-entity mindar-face-target="anchorIndex: 168">
+              <a-gltf-model 
+                mindar-face-occluder 
+                position="0 -0.3 0.15" 
+                rotation="0 0 0" 
+                scale="0.065 0.065 0.065" 
+                src="#headModel"
+              ></a-gltf-model>
+            </a-entity>
+
+            <a-entity mindar-face-target="anchorIndex: 168">
+              <a-gltf-model 
+                rotation="0 -0 0" 
+                position="0 0 0" 
+                scale="0.007 0.007 0.007" 
+                src="#productModel" 
+                class="product-model-entity" 
+                visible="true"
+              ></a-gltf-model>
+            </a-entity>
+          </a-scene>
+
+          {/* Loading indicator */}
+          {isLoading && (
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+              <div className="text-center text-white">
+                <div className="mb-4">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500 mx-auto"></div>
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Ending Try-On Session</h3>
+                <p className="text-sm text-green-500">Please wait while we end your try-on session</p>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Product Information Panel */}
         <div className={`product-panel ${productData ? 'visible' : ''}`}>
-              {productData && (
+          {productData && (
             <div>
               {/* Product Image */}
-              <div className="relative w-full aspect-square mb-6">
-                      <ImageWithFallback
+              <div className="relative w-full aspect-square">
+                <ImageWithFallback
                   src={productData.images?.[0] || '/placeholder.jpg'}
-                        alt={productData.title}
-                        width={400}
-                        height={400}
+                  alt={productData.title}
+                  width={400}
+                  height={400}
                   className="w-full h-full object-cover"
-                      />
+                />
                 <div className="absolute top-4 left-4">
                   <span className="bg-white/90 text-gray-900 text-sm px-3 py-1 rounded-full">
-                        {productData.condition}
+                    {productData.condition}
                   </span>
                 </div>
-                    </div>
+              </div>
 
-              <div className="px-6 space-y-6">
+              <div className="px-6 py-6 space-y-6">
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900 mb-1">{productData.title}</h1>
                   <p className="text-gray-600">
-                      {productData.brand} • Size {productData.size}
-                    </p>
+                    {productData.brand} • Size {productData.size}
+                  </p>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <span className="text-3xl font-bold text-green-600">${productData.price}</span>
-                      {productData.original_price && productData.original_price > productData.price && (
+                  {productData.original_price && productData.original_price > productData.price && (
                     <>
                       <span className="text-gray-500 line-through">${productData.original_price}</span>
                       <span className="bg-green-100 text-green-800 text-sm px-2 py-1 rounded">
                         {Math.round((1 - productData.price / productData.original_price) * 100)}% off
-                          </span>
+                      </span>
                     </>
-                      )}
-                    </div>
+                  )}
+                </div>
 
                 <div className="flex items-center gap-3 text-sm text-gray-600">
                   <div className="flex items-center">
                     <Star className="h-4 w-4 text-yellow-400 fill-yellow-400 mr-1" />
                     <span>{productData.profiles?.rating?.toFixed(1) || 'New'}</span>
-                    </div>
+                  </div>
                   <span className="text-gray-300">•</span>
                   <div className="flex items-center">
                     <MapPin className="h-4 w-4 mr-1" />
                     {productData.location || 'Location not specified'}
-          </div>
-        </div>
-        
+                  </div>
+                </div>
+
                 <div className="text-sm text-gray-500">
                   by {productData.profiles?.name || 'Anonymous'} • {productData.created_at && formatTimeAgo(new Date(productData.created_at))}
                 </div>
 
-                <div className="space-y-3 pt-4">
+                <div className="space-y-3 pt-4 pb-safe">
                   <button
                     onClick={handleBuyNow}
                     className="w-full bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors"
@@ -739,10 +811,10 @@ export default function TryOnPage() {
                     <Heart className={`h-5 w-5 ${isSaved ? 'fill-current' : ''}`} />
                     {isSaved ? 'Saved' : 'Save for Later'}
                   </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
         </div>
       </div>
     </div>
