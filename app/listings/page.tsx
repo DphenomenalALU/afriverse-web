@@ -425,7 +425,6 @@ export default function ListingsPage({ searchParams, params }: PageProps) {
                         {sizes.map((size) => (
                         <div key={size} className="flex items-center">
                           <Checkbox
-                            id={`size-${size}`}
                             checked={selectedSizes.includes(size)}
                             onCheckedChange={(checked) => {
                               setSelectedSizes(
