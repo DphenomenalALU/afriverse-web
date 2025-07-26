@@ -147,31 +147,6 @@ afriverse-website/
 └── styles/               # Global CSS styles
 ```
 
-## Features in Detail
-
-### User Registration & Profiles
-- Create and customize your shopping profile
-- Track your purchase history
-- Save favorite items and sellers
-- Manage your listings and sales
-
-### Virtual Try-On
-- AR-powered virtual fitting room
-- Try clothes on your virtual model
-- Accurate size and fit visualization
-- Compatible with most items
-
-### Smart Search & AI Recommendations
-- AI-powered outfit suggestions
-- Style matching algorithms
-- Personalized fashion recommendations
-- Smart filtering and categorization
-
-### Impact Tracker
-- Track CO₂ emissions saved
-- Monitor number of items reused
-- View your sustainability impact
-- Compare with community averages
 
 ## License
 

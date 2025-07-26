@@ -425,7 +425,6 @@ export default function ListingsPage({ searchParams, params }: PageProps) {
                         {sizes.map((size) => (
                         <div key={size} className="flex items-center">
                           <Checkbox
-                            id={`size-${size}`}
                             checked={selectedSizes.includes(size)}
                             onCheckedChange={(checked) => {
                               setSelectedSizes(
@@ -638,7 +637,10 @@ export default function ListingsPage({ searchParams, params }: PageProps) {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => router.push(`/try-on?item=${listing.id}`)}
+                          onClick={() => {
+                            window.location.href = `/try-on?item=${listing.id}`
+                            // router.push(`/try-on?item=${listing.id}`)
+                          }}
                           className="flex-1 text-purple-600 border-purple-200 hover:bg-purple-50"
                         >
                           <Camera className="h-4 w-4 mr-2" />

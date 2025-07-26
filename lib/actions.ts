@@ -285,3 +285,39 @@ export async function generate3DModel(imageUrl: string, userId: string) {
     return { success: false, error: error instanceof Error ? error.message : 'Failed to generate 3D model' };
   }
 } 
+
+export async function updateListingStatus(listingId: string, status: 'active' | 'pending' | 'sold' | 'archived') {
+  'use server'
+  
+  const supabase = createClient()
+
+  // First check if listing is still active
+  const { data: currentListing, error: checkError } = await supabase
+    .from("listings")
+    .select("status")
+    .eq("id", listingId)
+    .single()
+
+  if (checkError) {
+    console.error("Error checking listing status:", checkError)
+    return { success: false, error: checkError.message }
+  }
+
+  if (currentListing.status !== "active") {
+    return { success: false, error: "This item is no longer available for purchase" }
+  }
+
+  // Update the listing status
+  const { error: updateError } = await supabase
+    .from("listings")
+    .update({ status })
+    .eq("id", listingId)
+    .eq("status", "active")
+
+  if (updateError) {
+    console.error("Error updating listing status:", updateError)
+    return { success: false, error: updateError.message }
+  }
+
+  return { success: true }
+} 
